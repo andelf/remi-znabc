@@ -1,0 +1,10 @@
+config_version: "1"
+schema_list:
+  - schema: znabc
+switcher:
+  caption: 方案选单
+  hotkeys:
+    - Control+grave
+menu:
+  page_size: 9
+
