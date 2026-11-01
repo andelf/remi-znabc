@@ -86,7 +86,7 @@ def main():
     print(f'{"计划更新" if arguments.dry_run else "已更新"} {count} 个文件。')
     if not arguments.dry_run:
         print(f'覆盖文件的备份目录（如有）：{backup}')
-        print('请在 Rime 前端执行“重新部署”，然后切换到“智能 ABC · 复原”。')
+        print('请在 Rime 前端执行“重新部署”，然后切换到“智能 ABC · 复刻”。')
 
 
 if __name__ == '__main__':

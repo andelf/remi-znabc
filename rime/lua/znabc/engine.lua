@@ -18,11 +18,84 @@ local function matches(character, unit)
   return unit.shape == 0 or unit.shape == character.shape or unit.shape == math.floor(character.shape / 16) * 16
 end
 
-function Engine.new(root)
-  return setmetatable({dictionary = Dictionary.new(root)}, Engine)
+function Engine.new(root, user_dictionary)
+  return setmetatable({dictionary = Dictionary.new(root), user_dictionary = user_dictionary, user_enabled = true}, Engine)
 end
 
-function Engine:query(input)
+function Engine:has_base(codes)
+  local first, second = self.dictionary.characters[codes[1]], self.dictionary.characters[codes[2]]
+  if not first or not second then
+    return false
+  end
+  local key = parser.initial_letter(math.floor(first.packed / 256)) ..
+    parser.initial_letter(math.floor(second.packed / 256))
+  local identity = table.concat(codes, ",")
+  for _, phrase in ipairs(self.dictionary:phrase_bucket(key)[#codes] or {}) do
+    if table.concat(phrase.codes, ",") == identity then
+      return true
+    end
+  end
+  return false
+end
+
+function Engine:user_candidates(units, width)
+  local result = {}
+  if not self.user_dictionary or not self.user_enabled then
+    return result
+  end
+  for _, record in pairs(self.user_dictionary.words[width] or {}) do
+    local text, matched = {}, true
+    for index, code in ipairs(record.codes) do
+      local character = self.dictionary.characters[code]
+      if not matches(character, units[index]) then
+        matched = false
+        break
+      end
+      text[#text + 1] = character.text
+    end
+    if matched then
+      result[#result + 1] = {text = table.concat(text), codes = record.codes,
+        weight = 0, order = 0, source = "user"}
+    end
+  end
+  return result
+end
+
+function Engine:learning_rank(item)
+  local record = self.user_enabled and self.user_dictionary and self.user_dictionary:get(item.codes)
+  if not record then
+    return 0, 0, 0
+  end
+  local ranks = {temporary = 1, history = 2, common = 3}
+  return ranks[record.stage] or 0, record.uses, record.touched
+end
+
+function Engine:word_character(input, suffix)
+  local phrases, consumed, units, mode = self:query(input)
+  if mode ~= "phrase" or consumed ~= #input then
+    return {}, 0, units, "invalid"
+  end
+  local result, seen = {}, {}
+  for _, phrase in ipairs(phrases) do
+    local code = suffix == "[" and phrase.codes[1] or phrase.codes[#phrase.codes]
+    local character = self.dictionary.characters[code]
+    if character and not seen[character.text] then
+      result[#result + 1] = {text = character.text, code = code, word = phrase.text,
+        weight = phrase.weight, order = phrase.order, source = "word_character"}
+      seen[character.text] = true
+    end
+  end
+  return result, #input + 1, units, "word_character"
+end
+
+function Engine:query(input, single_character)
+  local base, suffix = input:match("^(.-)([%[%]])$")
+  if suffix and not base:find("[%[%]]") then
+    return self:word_character(base, suffix)
+  end
+  if input:find("[%[%]]") then
+    return {}, 0, {}, "invalid"
+  end
   if input:match("^[1-8]+$") then
     return self.dictionary:shape_bucket(input:sub(1, 1))[input] or {}, #input, {}, "shape"
   end
@@ -30,11 +103,15 @@ function Engine:query(input)
   if #units == 0 then
     return {}, 0, units, "invalid"
   end
-  if #units > 1 then
+  if #units > 1 and not single_character then
     local key = parser.initial_letter(units[1].initial) .. parser.initial_letter(units[2].initial)
     local bucket = self.dictionary:phrase_bucket(key)
     for width = math.min(#units, 9), 2, -1 do
-      local candidates = {}
+      local candidates = self:user_candidates(units, width)
+      local seen = {}
+      for _, candidate in ipairs(candidates) do
+        seen[table.concat(candidate.codes, ",")] = true
+      end
       for _, phrase in ipairs(bucket[width] or {}) do
         local matched = true
         for index, code in ipairs(phrase.codes) do
@@ -43,7 +120,7 @@ function Engine:query(input)
             break
           end
         end
-        if matched then
+        if matched and not seen[table.concat(phrase.codes, ",")] then
           candidates[#candidates + 1] = phrase
           if #candidates * width * 2 >= 1020 then
             break
@@ -52,10 +129,24 @@ function Engine:query(input)
       end
       if #candidates > 0 then
         table.sort(candidates, function(left, right)
+          local left_rank, left_uses, left_time = self:learning_rank(left)
+          local right_rank, right_uses, right_time = self:learning_rank(right)
+          if left_rank ~= right_rank then
+            return left_rank > right_rank
+          end
+          if left_uses ~= right_uses then
+            return left_uses > right_uses
+          end
+          if left_time ~= right_time then
+            return left_time > right_time
+          end
           if left.weight ~= right.weight then
             return left.weight > right.weight
           end
-          return left.order < right.order
+          if left.order ~= right.order then
+            return left.order < right.order
+          end
+          return table.concat(left.codes, ",") < table.concat(right.codes, ",")
         end)
         return candidates, units[width].finish, units, "phrase"
       end

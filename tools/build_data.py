@@ -62,14 +62,14 @@ def build(source, destination):
         write_rows(destination / 'shapes' / f'{key}.tsv', rows)
     manifest = {
         'format_version': 1,
-        'project_version': '0.1.2',
+        'project_version': '0.2.2',
         'source_sha256': {name: hashlib.sha256((source / name).read_bytes()).hexdigest()
                           for name in ['winabcnt.ime', 'Winabc.ovl', 'Winabc.cwd']},
         'characters': len(characters),
         'phrases': phrase_count,
         'phrase_buckets': len(phrases),
         'shape_relationships': sum(len(rows) for rows in shapes.values()),
-        'scope': 'Recovered base dictionaries and static frequencies; no extension dictionary or learned/user dictionary.',
+        'scope': 'Recovered base dictionaries and static frequencies; personal learning is stored separately in znabc_user.userdb.',
     }
     (destination / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     return manifest

@@ -37,6 +37,8 @@ class InstallerTests(unittest.TestCase):
             (destination / 'znabc.schema.yaml').write_text('old schema')
             original = 'patch:\n  menu/page_size: 5\n'
             (destination / 'default.custom.yaml').write_text(original)
+            (destination / 'znabc_user.userdb').mkdir()
+            (destination / 'znabc_user.userdb/record').write_bytes(b'personal words')
             INSTALLER.install(source, destination, dry_run=True)
             self.assertEqual((destination / 'znabc.schema.yaml').read_text(), 'old schema')
             self.assertFalse((destination / '.znabc-backups').exists())
@@ -45,6 +47,7 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual((backup / 'znabc.schema.yaml').read_text(), 'old schema')
             self.assertEqual((backup / 'default.custom.yaml').read_text(), original)
             self.assertEqual(INSTALLER.install(source, destination)[0], 0)
+            self.assertEqual((destination / 'znabc_user.userdb/record').read_bytes(), b'personal words')
 
 
 if __name__ == '__main__':

@@ -1,0 +1,14 @@
+{
+  "format_version": 1,
+  "project_version": "0.2.2",
+  "source_sha256": {
+    "winabcnt.ime": "bf8c92855873de4a7417692fc1ed655447e5bd57ff0c7ee48481351f178b0cdb",
+    "Winabc.ovl": "88a972024d608a433ee45affb8924e3f729894abcdc145fb7a58d03c6ecfee1e",
+    "Winabc.cwd": "7c0421b14016b854d91b22569a662b956a9559ec88b1edd62a5d4e08c700aeea"
+  },
+  "characters": 7231,
+  "phrases": 75705,
+  "phrase_buckets": 516,
+  "shape_relationships": 7787,
+  "scope": "Recovered base dictionaries and static frequencies; personal learning is stored separately in znabc_user.userdb."
+}

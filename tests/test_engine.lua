@@ -49,5 +49,45 @@ local units = parser.parse("chang'an")
 assert(#units == 2 and parser.syllable(units[1].packed) == "chang")
 assert(#engine:query("i") == 0)
 assert(#engine:query("999") == 0)
+local words, word_consumed = engine:query("fuke")
+assert(word_consumed == 4 and words[1].text == "复课")
+local singles, single_consumed, _, single_mode = engine:query("fuke", true)
+assert(single_consumed == 2 and single_mode == "character" and #singles > #words)
+local found
+for _, row in ipairs(singles) do
+  assert(not row.codes)
+  if row.text == "复" then found = row end
+end
+assert(found)
+local shape = string.format("%x", found.shape)
+local filtered, filtered_consumed = engine:query("fu" .. shape .. "ke", true)
+assert(filtered_consumed == 2 + #shape)
+local includes_selected = false
+for _, row in ipairs(filtered) do
+  if row.text == "复" then includes_selected = true end
+end
+assert(includes_selected)
+local shape_rows, _, _, shape_mode = engine:query("3235", true)
+assert(shape_mode == "shape" and shape_rows[2].text == "你")
+checks = checks + 6
+for _, example in ipairs({{"shijie[", "世"}, {"shijie]", "界"},
+    {"ni32hao63[", "你"}, {"ni32hao63]", "好"}}) do
+  local rows, consumed, _, mode = engine:query(example[1], true)
+  assert(mode == "word_character" and consumed == #example[1] and rows[1].text == example[2])
+  checks = checks + 1
+end
+local extracted, extracted_consumed = engine:query("fuke]")
+assert(extracted_consumed == 5 and extracted[1].text == "课" and extracted[2].text == "科")
+assert(extracted[1].word == "复课" and extracted[2].word == "妇科")
+local unique = {}
+for _, row in ipairs(engine:query("shijie]")) do
+  assert(not unique[row.text])
+  unique[row.text] = true
+end
+for _, input in ipairs({"shi[", "3235]", "zhongguoren[", "ni32hao43]", "shi[xx", "shijie[]"}) do
+  assert(#engine:query(input) == 0, input)
+  checks = checks + 1
+end
+checks = checks + 3
 print("engine checks passed: " .. (checks + 7))
 

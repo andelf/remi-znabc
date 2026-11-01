@@ -9,7 +9,11 @@ function processor.init(env)
   local context = env.engine.context
   env.input = context.input
   context:set_option("znabc_selecting", false)
+  context:set_option("znabc_single_character", false)
   env.update_connection = context.update_notifier:connect(function(updated)
+    if updated.input == "" and updated:get_option("znabc_single_character") then
+      updated:set_option("znabc_single_character", false)
+    end
     if updated.input ~= env.input then
       env.input = updated.input
       if updated:get_option("znabc_selecting") then
@@ -26,14 +30,17 @@ function processor.func(key, env)
   end
   local code = key.keycode
   if key:ctrl() then
+    if code == 0xffff and context:has_menu() then
+      context:delete_current_selection()
+      context:refresh_non_confirmed_composition()
+      return 1
+    end
     if code >= 49 and code <= 57 and context:has_menu() then
       local page_size = env.engine.schema.config:get_int("menu/page_size") or 9
       local composition = context.composition
       local segment = composition:back()
       local page_start = math.floor(segment.selected_index / page_size) * page_size
-      if context:select(page_start + code - 49) then
-        context:confirm_current_selection()
-      end
+      context:select(page_start + code - 49)
       return 1
     end
     return 2
@@ -57,6 +64,33 @@ function processor.func(key, env)
     return 2
   end
   local selecting = context:get_option("znabc_selecting")
+  if (code == 91 or code == 93) and context.input ~= "" and context.input:sub(1, 1) ~= "v" then
+    local segment = context.composition:back()
+    local pending = context.input:sub((segment and segment.start or 0) + 1)
+    if pending:find("[a-z]") and pending:match("^[a-z1-8']+[%[%]]?$") then
+      if context.caret_pos ~= #context.input then
+        return 1
+      end
+      if context.input:match("[%[%]]$") then
+        context:pop_input(1)
+      elseif #context.input >= 48 then
+        return 1
+      end
+      context:push_input(string.char(code))
+      if selecting then
+        set_selecting(context, true)
+      end
+      return 1
+    end
+  end
+  if code == 0xff09 and selecting and context:has_menu() and not context.input:match("^[1-8]+$") then
+    if context.input:match("[%[%]]$") then
+      return 1
+    end
+    context:set_option("znabc_single_character", not context:get_option("znabc_single_character"))
+    context:refresh_non_confirmed_composition()
+    return 1
+  end
   if code == 32 and #context.input > 0 then
     if not selecting then
       set_selecting(context, true)
@@ -70,9 +104,7 @@ function processor.func(key, env)
       local page_size = env.engine.schema.config:get_int("menu/page_size") or 9
       local segment = context.composition:back()
       local page_start = math.floor(segment.selected_index / page_size) * page_size
-      if context:select(page_start + code - 49) then
-        context:confirm_current_selection()
-      end
+      context:select(page_start + code - 49)
     end
     return 1
   end
