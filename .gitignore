@@ -2,6 +2,9 @@
 dist/
 __pycache__/
 *.pyc
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
 *.userdb/
 *.userdb.txt
 .znabc-backups/

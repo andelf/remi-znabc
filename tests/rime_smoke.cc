@@ -430,10 +430,50 @@ int main(int count, char** arguments) {
     select_text(api, session, "文");
     auto before_backspace = std::string(api->get_input(session));
     api->process_key(session, 0xff08, 0);
-    require(std::string(api->get_input(session)) == before_backspace.substr(0, before_backspace.size() - 1) &&
-        candidates(api, session).empty() && take_commit(api, session).empty(), "Backspace did not edit automatically opened remainder: " + std::string(api->get_input(session)) +
-          ", menu=" + std::to_string(candidates(api, session).size()) + ", selecting=" +
-          std::to_string(api->get_option(session, "znabc_selecting")) + ", caret=" + std::to_string(api->get_caret_pos(session)));
+    require(std::string(api->get_input(session)) == before_backspace &&
+        contains(candidates(api, session), "文体") && take_commit(api, session).empty() &&
+        api->get_option(session, "znabc_selecting"), "Backspace did not reopen previous selection without deleting code");
+    select_text(api, session, "问");
+    select_text(api, session, "提");
+    require(take_commit(api, session) == "问提", "reselected character did not replace previous selection");
+    type(api, session, "zhongguoren");
+    open_menu(api, session);
+    select_text(api, session, "中国");
+    api->process_key(session, 0xff08, 0);
+    require(std::string(api->get_input(session)) == "zhongguoren" && contains(candidates(api, session), "中国") &&
+        take_commit(api, session).empty(), "Backspace did not undo whole selected phrase");
+    select_text(api, session, "中国");
+    select_text(api, session, "人");
+    require(take_commit(api, session) == "中国人", "phrase reselection lost remaining input");
+    type(api, session, "wenzhongguoren");
+    open_menu(api, session);
+    select_text(api, session, "文");
+    select_text(api, session, "中国");
+    api->process_key(session, 0xff08, 0);
+    require(std::string(api->get_input(session)) == "wenzhongguoren" && contains(candidates(api, session), "中国"),
+        "first Backspace did not undo last selected group");
+    api->process_key(session, 0xff08, 0);
+    require(std::string(api->get_input(session)) == "wenzhongguoren" && contains(candidates(api, session), "文"),
+        "second Backspace did not undo earlier selected group");
+    api->process_key(session, 0xff08, 0);
+    require(std::string(api->get_input(session)) == "wenzhongguore" && candidates(api, session).empty(),
+        "Backspace without previous selection did not resume code editing");
+    type(api, session, "ni32hao43");
+    open_menu(api, session);
+    select_text(api, session, "你");
+    api->process_key(session, 0xff08, 0);
+    require(std::string(api->get_input(session)) == "ni32hao43" && contains(candidates(api, session), "你"),
+        "Backspace with empty remainder menu lost shape codes");
+    type(api, session, "fuke");
+    open_menu(api, session);
+    api->process_key(session, 0xff09, 0);
+    select_text(api, session, "复");
+    api->process_key(session, 0xff08, 0);
+    require(std::string(api->get_input(session)) == "fuke" && !candidates(api, session).empty() &&
+        api->get_option(session, "znabc_single_character"), "Backspace lost character-only mode");
+    select_text(api, session, "复");
+    select_text(api, session, "刻");
+    require(take_commit(api, session) == "复刻", "character-only reselection failed");
     type(api, session, "wenshijie");
     open_menu(api, session);
     select_text(api, session, "文");
@@ -455,6 +495,18 @@ int main(int count, char** arguments) {
     require(take_commit(api, session) == "倪倪", "consecutive Ctrl+number selection failed");
     api->set_option(session, "znabc_user_dict", True);
     api->set_option(session, "znabc_learning", True);
+    type(api, session, "ni32ni32hao63");
+    open_menu(api, session);
+    select_text(api, session, "倪");
+    select_text(api, session, "倪");
+    api->process_key(session, 0xff08, 0);
+    select_text(api, session, "你");
+    select_text(api, session, "好");
+    require(take_commit(api, session) == "倪你好", "undo/reselection changed committed text");
+    type(api, session, "ni32ni32hao63");
+    open_menu(api, session);
+    require(contains(candidates(api, session), "倪你好") && !contains(candidates(api, session), "倪倪好"),
+        "learning retained an undone selection");
     api->clear_composition(session);
     for (const auto& bracket : {'[', ']'}) {
       auto handled = api->process_key(session, bracket, 0);

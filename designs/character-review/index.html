@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>字表核对台 · 智能 ABC</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23295042'/%3E%3Ctext x='32' y='46' text-anchor='middle' font-size='43' fill='%23fff' font-family='serif'%3E字%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="字表核对台首页"><span class="brand-mark">字</span><span>智能 ABC <span class="brand-divider">/</span> <strong>字表核对台</strong></span></a>
+    <div class="top-actions"><span class="local-label"><span class="status-dot"></span>本地工作区 · SQLite</span><button id="export-button" class="button small">导出核对结果 <span aria-hidden="true">↗</span></button></div>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar">
+      <div class="sidebar-heading"><span class="eyebrow">CHARACTER WORKSPACE</span><h1>把每个字，核对清楚。</h1><p>先补字，再完善读音与形码。</p></div>
+      <div class="progress-card"><div><span>缺失常用字进度</span><strong id="progress-label">载入中</strong></div><div class="progress-track"><span id="progress-bar"></span></div><small id="progress-detail">正在读取本地字表…</small></div>
+      <nav class="scope-nav" aria-label="字表范围">
+        <button class="scope active" data-scope="common"><span>缺失常用字</span><span class="scope-count" id="count-common">—</span></button>
+        <button class="scope" data-scope="other"><span>其他语料缺字</span><span class="scope-count" id="count-other">—</span></button>
+        <button class="scope" data-scope="recovered"><span>原版恢复</span><span class="scope-count" id="count-recovered">—</span></button>
+        <button class="scope" data-scope="reading"><span>已有字 · 读音差异</span><span class="scope-count" id="count-reading">—</span></button>
+        <button class="scope" data-scope="base"><span>现有基础字表</span><span class="scope-count" id="count-base">—</span></button>
+        <button class="scope" data-scope="all"><span>全部字符</span><span class="scope-count" id="count-all">—</span></button>
+      </nav>
+      <div class="sidebar-foot"><span class="eyebrow">工作方式</span><p>原版双索引一致且前缀唯一时自动恢复；其余记录逐项核对，稍后再导入输入法。</p><div class="shortcut"><kbd>Ctrl</kbd><span>+</span><kbd>↵</kbd><span>确认并下一字</span></div><small id="database-label" title="">SQLite 本地保存</small></div>
+    </aside>
+
+    <section class="main-panel">
+      <div class="page-heading"><div><div class="eyebrow">REVIEW QUEUE</div><h2 id="scope-title">缺失常用字</h2><p id="scope-description">对照 8,105 字表，补齐日常输入的字。</p></div><span class="version-chip" id="version-label">ABC 字表</span></div>
+      <div class="toolbar"><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索汉字、拼音、形码、U+ 编码" aria-label="搜索字表"><kbd>/</kbd></label><select id="status-filter" aria-label="筛选核对状态"><option value="all">全部状态</option><option value="pending" selected>待核对</option><option value="approved">已采用（含原版恢复）</option><option value="deferred">待考证</option><option value="excluded">暂不收录</option></select><label class="missing-reading-filter"><input type="checkbox" id="no-reading">暂无读音线索</label></div>
+      <div class="review-grid">
+        <section class="queue-panel" aria-label="待核对字列表"><div class="queue-caption"><span id="result-count">读取中…</span><span>字符 / 拼音</span></div><div id="character-list" class="character-list" role="list"></div><div class="list-pagination"><button id="previous-page" class="icon-button" aria-label="上一页">←</button><span id="page-label">—</span><button id="next-page" class="icon-button" aria-label="下一页">→</button></div></section>
+
+        <section id="editor-panel" class="editor-panel" aria-label="字符核对表单">
+          <div id="empty-state" class="empty-state"><span>字</span><h3>正在载入字表</h3><p>从左侧队列选择一个字开始核对。</p></div>
+          <div id="editor" hidden>
+            <div class="editor-header"><div class="character-tile" id="large-character">字</div><div class="character-description"><div class="character-meta"><span id="unicode-label"></span><button id="copy-character" class="text-button">复制字</button></div><h3>核对这个字</h3><div id="character-tags" class="tag-row"></div></div><span id="review-status" class="badge pending">待核对</span></div>
+            <div class="editor-heading"><span id="value-heading">待核对值</span><span id="save-state">尚未保存</span></div>
+            <form id="review-form">
+              <label class="field-label" for="pinyin">拼音 <span class="required">必填</span></label><input id="pinyin" class="field-input pinyin-input" autocomplete="off" spellcheck="false" placeholder="如 zhe；多个读音用空格分隔"><p class="field-help">不带声调，ü 写作 v。只保留你已经核实的读音。</p>
+              <div class="shape-fields"><div><label class="field-label" for="suffix">音形数字后缀 <span>自动生成 / 可调整</span></label><input id="suffix" class="field-input code-input" inputmode="numeric" autocomplete="off" placeholder="如 32" maxlength="2"><p id="suffix-help" class="field-help">新增字按唯一笔形前缀生成；已有字保留原版摘要。</p></div><div><label class="field-label" for="shapes">纯笔形码 <span>可后补</span></label><input id="shapes" class="field-input code-input" autocomplete="off" placeholder="如 3235 32355"><p class="field-help">每组 1～6 位，空格分隔。</p></div></div>
+              <label class="shape-check"><input id="shape-verified" type="checkbox"><span>填入的形码已经人工核对</span></label>
+              <div class="subtle-note"><span aria-hidden="true">i</span><p>数字后缀与纯笔形码分开核对。暂无可靠形码时可留空，先确认拼音。</p></div>
+              <label class="field-label" for="notes">备注 / 核对依据</label><textarea id="notes" class="field-input" rows="3" maxlength="2000" placeholder="记录读音来源、异体字关系或暂时存疑的地方…"></textarea>
+              <div id="form-error" class="form-error" role="alert" hidden></div>
+              <div class="form-actions"><button type="button" id="save-draft" class="button">保存草稿</button><button type="button" id="defer-button" class="button muted">待考证</button><button type="submit" id="approve-button" class="button primary">确认并下一字 <span aria-hidden="true">→</span></button></div>
+              <div class="secondary-actions"><button type="button" id="exclude-button" class="text-button">暂不收录此字</button><div><button type="button" id="previous-character" class="text-button">← 上一字</button><button type="button" id="next-character" class="text-button">下一字 →</button></div></div>
+            </form>
+            <details class="history"><summary>修改记录 <span id="history-count"></span></summary><div id="history-list">展开后读取本地记录。</div></details>
+          </div>
+        </section>
+
+        <aside class="reference-panel" aria-label="来源数据参考"><div class="reference-heading"><span class="eyebrow">SOURCE NOTES</span><h3>交叉参考</h3><p>原版一致记录自动恢复，其余来源供核对。</p></div><div id="source-content" class="source-content"><p class="source-empty">选择一个字后显示参考数据。</p></div></aside>
+      </div>
+      <footer class="workspace-footer"><span><span class="status-dot"></span><span id="connection-status">正在连接本地数据库</span></span><span>核对台不会直接修改输入法字库</span></footer>
+    </section>
+  </main>
+
+  <dialog id="export-dialog"><form method="dialog"><div class="dialog-heading"><div><span class="eyebrow">EXPORT</span><h2>导出核对结果</h2></div><button class="icon-button" aria-label="关闭导出窗口">×</button></div><p>导出自动恢复值及人工保存值，并标注来源；人工修改优先。</p><label class="field-label" for="export-status">导出范围</label><select id="export-status" class="field-input"><option value="approved">已采用（含原版恢复）</option><option value="all">全部记录（含草稿与后缀待核对）</option><option value="deferred">待考证</option><option value="excluded">暂不收录</option></select><div class="export-actions"><a class="button" id="export-tsv" href="/api/export?format=tsv">下载 TSV</a><a class="button primary" id="export-json" href="/api/export?format=json">下载 JSON ↗</a></div><small>原版恢复值与人工修改记录分别保存在 SQLite 中。原版恢复不标记为人工核对。</small></form></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

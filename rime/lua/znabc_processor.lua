@@ -64,6 +64,10 @@ function processor.func(key, env)
     return 2
   end
   local selecting = context:get_option("znabc_selecting")
+  if selecting and code == 0xff08 and context:reopen_previous_selection() then
+    set_selecting(context, true)
+    return 1
+  end
   if (code == 91 or code == 93) and context.input ~= "" and context.input:sub(1, 1) ~= "v" then
     local segment = context.composition:back()
     local pending = context.input:sub((segment and segment.start or 0) + 1)

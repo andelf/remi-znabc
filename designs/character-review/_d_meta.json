@@ -1,0 +1,22 @@
+{
+  "type": "design",
+  "designSystems": [],
+  "primaryDesignSystem": null,
+  "assets": {
+    "字表核对台": {
+      "versions": [
+        {
+          "path": "index.html",
+          "createdAt": "2026-11-01T09:15:07.541Z",
+          "status": "needs-review",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          }
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-11-01T09:15:07.572Z",
+  "updatedAt": "2026-11-01T09:15:07.572Z"
+}
