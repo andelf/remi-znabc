@@ -19,6 +19,16 @@ def extension(shape_rows, pinyin_rows):
 
 
 class SpecialDataTests(unittest.TestCase):
+    def test_affixes_preserve_order_codes_and_direction(self):
+        table = bytes.fromhex('0201cc800202e6800402142056200000')
+        self.assertEqual(BUILDER.affix_records(table), [(1, '32972'), (2, '32998'), (2, '8212,8278')])
+
+    def test_affixes_reject_truncated_or_invalid_records(self):
+        for table in (b'', bytes.fromhex('0201cc80'), bytes.fromhex('0204cc800000'),
+                      bytes.fromhex('040214200000'), bytes.fromhex('00000000')):
+            with self.subTest(table=table), self.assertRaises(ValueError):
+                BUILDER.affix_records(table)
+
     def test_extra_readings_preserve_pinyin_order_and_shape_order(self):
         character = '行'.encode('gbk')
         another = '可'.encode('gbk')

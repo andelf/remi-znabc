@@ -20,6 +20,7 @@ def main():
                 archive.write(path, f'{prefix}/{path.relative_to(project).as_posix()}')
         archive.write(project / 'tools/install.py', f'{prefix}/install.py')
         archive.write(project / 'README.md', f'{prefix}/README.md')
+        archive.write(project / 'backlog.md', f'{prefix}/backlog.md')
         archive.write(project / 'VERIFICATION.txt', f'{prefix}/VERIFICATION.txt')
     digest = hashlib.sha256(destination.read_bytes()).hexdigest()
     destination.with_suffix('.zip.sha256').write_text(f'{digest}  {destination.name}\n')

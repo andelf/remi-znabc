@@ -12,6 +12,8 @@
     "8": 63,
     "9": 76
   },
+  "affix_entries": 182,
+  "affix_table_address": "0x623200",
   "extension_records": 27927,
   "extension_characters": 21008,
   "rejected_extension_identities": 7,
@@ -19,6 +21,6 @@
     "winabcnt.ime": "bf8c92855873de4a7417692fc1ed655447e5bd57ff0c7ee48481351f178b0cdb",
     "winabcx.ovl": "39a503dffcd8ba4764fd687e4c71ef5d51839a53d4d688b24178b875b7ffc300"
   },
-  "scope": "Original quantity mapping and consistent dual-index extension records; symbols in GB2312 byte order.",
+  "scope": "Original affix records, quantity mapping and consistent dual-index extension records; symbols in GB2312 byte order.",
   "unicode_mapping": "GB18030 for original extension byte identities, including private-use mappings."
 }

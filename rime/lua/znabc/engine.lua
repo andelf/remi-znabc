@@ -20,8 +20,50 @@ local function matches(character, unit)
 end
 
 function Engine.new(root, user_dictionary)
-  return setmetatable({dictionary = Dictionary.new(root), special = Special.new(root),
+  local affixes = {}
+  local file = assert(io.open(root .. "/affixes.tsv", "rb"))
+  for line in file:lines() do
+    local direction, encoded = line:match("^(%d+)\t([%d,]+)")
+    local codes = {}
+    for code in encoded:gmatch("%d+") do codes[#codes + 1] = tonumber(code) end
+    affixes[#affixes + 1] = {direction = tonumber(direction), codes = codes}
+  end
+  file:close()
+  return setmetatable({dictionary = Dictionary.new(root), special = Special.new(root), affixes = affixes,
     user_dictionary = user_dictionary, user_enabled = true}, Engine)
+end
+
+function Engine:affix_index(candidates, consumed, units, mode, input_length, start, single_character)
+  if single_character or (mode ~= "character" and mode ~= "phrase") then return nil end
+  local width = 0
+  for _, unit in ipairs(units) do
+    if unit.finish <= consumed then width = width + 1 end
+  end
+  local direction
+  if start > 0 and consumed == input_length and width <= 2 then
+    direction = 2
+  elseif start == 0 and width == 1 and consumed < input_length then
+    direction = 1
+  else
+    return nil
+  end
+  for _, affix in ipairs(self.affixes) do
+    if #affix.codes == width and (affix.direction == direction or affix.direction == 3) then
+      local matched = true
+      for index, code in ipairs(affix.codes) do
+        if not matches(self.dictionary.characters[code], units[index]) then matched = false; break end
+      end
+      if matched then
+        local identity = table.concat(affix.codes, ",")
+        for index, candidate in ipairs(candidates) do
+          local codes = candidate.codes or (candidate.code and {candidate.code})
+          if codes and table.concat(codes, ",") == identity and
+              (candidate.consumed or consumed) == consumed then return index - 1 end
+        end
+        return nil
+      end
+    end
+  end
 end
 
 function Engine:has_base(codes)

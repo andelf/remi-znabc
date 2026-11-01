@@ -28,6 +28,23 @@ def write_rows(filename, rows):
     filename.write_text(''.join('\t'.join(map(str, row)) + '\n' for row in rows), encoding='utf-8')
 
 
+def affix_records(table):
+    result, position = [], 0
+    while position + 2 <= len(table):
+        length, direction = table[position:position + 2]
+        position += 2
+        if length == 0 and direction == 0:
+            if position != len(table):
+                raise ValueError('附加成分表结束标记之后有多余数据')
+            return result
+        if length not in (2, 4) or direction not in (1, 2, 3) or position + length > len(table):
+            raise ValueError('附加成分记录边界或方向异常')
+        codes = struct.unpack_from('<' + 'H' * (length // 2), table, position)
+        result.append((direction, ','.join(map(str, codes))))
+        position += length
+    raise ValueError('附加成分表缺少结束标记')
+
+
 def extension_records(raw):
     offsets = struct.unpack_from('<36I', raw, 20)
     if offsets[0] != 164 or offsets[-1] != len(raw) or list(offsets) != sorted(offsets):
@@ -74,6 +91,10 @@ def extension_records(raw):
 
 def build(source, destination):
     raw = (source / 'winabcnt.ime').read_bytes()
+    affixes = affix_records(read_virtual(raw, 0x623200, 748))
+    if len(affixes) != 182:
+        raise ValueError('不支持的原版附加成分表')
+    write_rows(destination / 'affixes.tsv', affixes)
     table = read_virtual(raw, 0x623160, 159)
     quantity = [(table[index], table[index + 1:index + 3].decode('gbk')) for index in range(0, len(table), 3)]
     if dict(quantity).get(1) != '壹' or dict(quantity).get(ord('N')) != '年':
@@ -103,11 +124,12 @@ def build(source, destination):
         write_rows(destination / 'gbk_shapes' / f'{initial}.tsv', sorted(shapes[initial], key=lambda row: row[3]))
     manifest = {
         'format_version': 1, 'quantity_entries': len(quantity), 'symbols': symbols,
+        'affix_entries': len(affixes), 'affix_table_address': '0x623200',
         'extension_records': len(records), 'extension_characters': len({row[0] for row in records}),
         'rejected_extension_identities': rejected,
         'source_sha256': {'winabcnt.ime': hashlib.sha256(raw).hexdigest(),
                           'winabcx.ovl': hashlib.sha256(extension).hexdigest()},
-        'scope': 'Original quantity mapping and consistent dual-index extension records; symbols in GB2312 byte order.',
+        'scope': 'Original affix records, quantity mapping and consistent dual-index extension records; symbols in GB2312 byte order.',
         'unicode_mapping': 'GB18030 for original extension byte identities, including private-use mappings.',
     }
     (destination / 'special_manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')

@@ -63,7 +63,7 @@ def build(source, destination):
         write_rows(destination / 'shapes' / f'{key}.tsv', rows)
     manifest = {
         'format_version': 1,
-        'project_version': '0.3.0',
+        'project_version': '0.3.1',
         'source_sha256': {name: hashlib.sha256((source / name).read_bytes()).hexdigest()
                           for name in ['winabcnt.ime', 'Winabc.ovl', 'Winabc.cwd']},
         'characters': len(characters),

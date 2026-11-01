@@ -1,9 +1,11 @@
 local Special = require("znabc.special")
 local processor = {}
+local affix_selection = require("znabc.affix_selection")
 
 local function set_selecting(context, enabled)
   context:set_option("znabc_selecting", enabled)
   context:refresh_non_confirmed_composition()
+  affix_selection.apply(context)
 end
 
 function processor.init(env)
@@ -158,6 +160,7 @@ function processor.func(key, env)
     end
     context:set_option("znabc_single_character", not context:get_option("znabc_single_character"))
     context:refresh_non_confirmed_composition()
+    affix_selection.apply(context)
     return 1
   end
   if code == 32 and #context.input > 0 then

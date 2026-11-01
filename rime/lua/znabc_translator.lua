@@ -3,6 +3,7 @@ local parser = require("znabc.parser")
 local UserDictionary = require("znabc.user_dictionary")
 local Learning = require("znabc.learning")
 local translator = {}
+local affix_selection = require("znabc.affix_selection")
 
 function translator.init(env)
   local configured = env.engine.schema.config:get_string("znabc/data_dir")
@@ -36,6 +37,7 @@ function translator.init(env)
   env.select_connection = context.select_notifier:connect(function(selected)
     if #selected.input > 0 and selected:get_option("znabc_selecting") then
       selected:refresh_non_confirmed_composition()
+      affix_selection.apply(selected)
     end
   end)
   env.update_connection = context.update_notifier:connect(function(updated)
@@ -51,6 +53,8 @@ function translator.func(input, segment, env)
   end
   env.abc.user_enabled = env.engine.context:get_option("znabc_user_dict")
   local single_character = env.engine.context:get_option("znabc_single_character")
+  local context = env.engine.context
+  context:set_property("znabc_affix_index", "")
   local candidates, consumed, units, mode
   if env.engine.context:get_option("znabc_gbk") then
     candidates, consumed, units, mode = env.abc:query_gbk(input)
@@ -59,6 +63,14 @@ function translator.func(input, segment, env)
   end
   if consumed == 0 then
     return
+  end
+  if not context:get_option("znabc_gbk") then
+    local index = env.abc:affix_index(candidates, consumed, units, mode, #input, segment.start, single_character)
+    if index then
+      context:set_property("znabc_affix_input", context.input)
+      context:set_property("znabc_affix_start", tostring(segment.start))
+      context:set_property("znabc_affix_index", tostring(index))
+    end
   end
   env.learning:record(input, segment, candidates, consumed, mode)
   for index, item in ipairs(candidates) do

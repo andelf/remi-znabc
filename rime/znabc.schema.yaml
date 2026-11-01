@@ -1,7 +1,7 @@
 schema:
   schema_id: znabc
   name: 智能 ABC · 复刻
-  version: "0.3.0"
+  version: "0.3.1"
   author:
     - znabc reconstruction project
   description: |
