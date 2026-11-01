@@ -1,5 +1,6 @@
 local parser = require("znabc.parser")
 local Dictionary = require("znabc.dictionary")
+local Special = require("znabc.special")
 local Engine = {}
 Engine.__index = Engine
 
@@ -19,7 +20,8 @@ local function matches(character, unit)
 end
 
 function Engine.new(root, user_dictionary)
-  return setmetatable({dictionary = Dictionary.new(root), user_dictionary = user_dictionary, user_enabled = true}, Engine)
+  return setmetatable({dictionary = Dictionary.new(root), special = Special.new(root),
+    user_dictionary = user_dictionary, user_enabled = true}, Engine)
 end
 
 function Engine:has_base(codes)
@@ -89,6 +91,10 @@ function Engine:word_character(input, suffix)
 end
 
 function Engine:query(input, single_character)
+  local zone = input:match("^v([1-9])$")
+  if zone then
+    return self.special:symbol_candidates(zone), #input, {}, "symbol"
+  end
   local base, suffix = input:match("^(.-)([%[%]])$")
   if suffix and not base:find("[%[%]]") then
     return self:word_character(base, suffix)
@@ -171,6 +177,10 @@ function Engine:query(input, single_character)
     return left.code < right.code
   end)
   return candidates, unit.finish, units, "character"
+end
+
+function Engine:query_gbk(input)
+  return self.special:gbk_candidates(input), #input, {}, "gbk"
 end
 
 function Engine:query_menu(input, single_character)

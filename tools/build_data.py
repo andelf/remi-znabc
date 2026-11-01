@@ -12,6 +12,7 @@ WORKSPACE = PROJECT.parent
 sys.path.insert(0, str(WORKSPACE / 'analysis'))
 
 from znabc_formats import BaseTables
+from build_special_data import build as build_special
 
 
 def write_rows(path, rows):
@@ -62,7 +63,7 @@ def build(source, destination):
         write_rows(destination / 'shapes' / f'{key}.tsv', rows)
     manifest = {
         'format_version': 1,
-        'project_version': '0.2.4',
+        'project_version': '0.3.0',
         'source_sha256': {name: hashlib.sha256((source / name).read_bytes()).hexdigest()
                           for name in ['winabcnt.ime', 'Winabc.ovl', 'Winabc.cwd']},
         'characters': len(characters),
@@ -80,6 +81,7 @@ def main():
     parser.add_argument('--source', type=Path, default=WORKSPACE / 'znabc-5.23-1203-extracted/payload')
     parser.add_argument('--output', type=Path, default=PROJECT / 'rime/znabc_data')
     arguments = parser.parse_args()
+    build_special(arguments.source, arguments.output)
     print(json.dumps(build(arguments.source, arguments.output), ensure_ascii=False, indent=2))
 
 

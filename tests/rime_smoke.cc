@@ -245,13 +245,118 @@ int main(int count, char** arguments) {
     type(api, session, "nihao");
     api->process_key(session, '.', 0);
     require(take_commit(api, session) == "你好。", "punctuation commit failed");
-    for (const auto& input : {"vlove", "vhello", "vabc09", "vv", "v", "vlove[", "vlove]"}) {
+    for (const auto& example : std::vector<std::pair<std::string, std::string>>{
+        {"i", "一"}, {"I1", "壹"}, {"i123", "一二三"}, {"I123", "壹贰叁"},
+        {"i0", "○"}, {"I0", "零"}, {"i1b2s3", "一百二十三"},
+        {"i2006n6y3sr", "二○○六年六月三十日"}, {"iqk", "千克"},
+        {"i2*3", "二乘三"}, {"i1/2", "一除二"}, {"i-3", "减三"}, {"i$", "元"}}) {
+      type(api, session, example.first);
+      api->process_key(session, ' ', 0);
+      require(take_commit(api, session) == example.second, "quantity conversion failed: " + example.first);
+      require(std::string(api->get_input(session)).empty(), "quantity input not cleared");
+    }
+    type(api, session, "i1");
+    api->process_key(session, 0xff08, 0);
+    api->process_key(session, '2', 0);
+    api->process_key(session, 0xff0d, 0);
+    require(take_commit(api, session) == "二", "quantity Backspace/Enter failed");
+    type(api, session, "i1");
+    api->process_key(session, 0xff1b, 0);
+    require(std::string(api->get_input(session)).empty(), "quantity Escape failed");
+    api->process_key(session, 'I', 1);
+    api->process_key(session, '1', 0);
+    api->process_key(session, ' ', 0);
+    require(take_commit(api, session) == "壹", "Shift+I quantity failed");
+    type(api, session, "i12.5");
+    api->process_key(session, ' ', 0);
+    require(take_commit(api, session).empty() && std::string(api->get_input(session)) == "i12.5", "invalid decimal silently changed value");
+    api->process_key(session, 0xff1b, 0);
+    for (const auto& input : {"enter", "hello", "ni32ke18"}) {
+      type(api, session, input);
+      require(api->process_key(session, 0xff0d, 0), "raw Return rejected");
+      require(take_commit(api, session) == input, "unmatched Return did not commit raw input");
+      require(std::string(api->get_input(session)).empty() && !api->get_option(session, "znabc_gbk") &&
+          !api->get_option(session, "znabc_selecting"), "unmatched Return left selection state");
+    }
+    api->clear_composition(session);
+    require(!api->process_key(session, 0xff0d, 0), "empty Return swallowed application key");
+    for (int zone = 1; zone <= 9; ++zone) {
+      type(api, session, "v" + std::to_string(zone));
+      open_menu(api, session);
+      auto rows = candidates(api, session);
+      require(!rows.empty(), "symbol menu empty");
+      api->process_key(session, 0xff56, 0);
+      auto next = candidates(api, session);
+      require(!next.empty() && next[0] != rows[0], "symbol paging failed");
+      api->process_key(session, '2', 0);
+      require(take_commit(api, session) == next[1], "symbol number selection failed");
+      type(api, session, "v" + std::to_string(zone));
+      api->process_key(session, 0xff0d, 0);
+      rows = candidates(api, session);
+      require(!rows.empty() && take_commit(api, session).empty(), "symbol Return did not open menu");
+      api->process_key(session, 0xff0d, 0);
+      require(take_commit(api, session) == rows[0], "symbol Return did not confirm candidate");
+    }
+    for (const auto& input : {"rong3414", "ro34", "r34144"}) {
+      type(api, session, input);
+      api->process_key(session, 0xff0d, 0);
+      require(take_commit(api, session).empty(), "GBK Enter committed code");
+      select_text(api, session, "鎔");
+      require(take_commit(api, session) == "鎔", "GBK character selection failed");
+    }
+    type(api, session, "rong3414");
+    open_menu(api, session);
+    require(!contains(candidates(api, session), "鎔"), "ordinary lookup used full extension shape");
+    for (const auto& input : {"pan335734", "335734"}) {
+      type(api, session, input);
+      api->process_key(session, 0xff0d, 0);
+      select_text(api, session, "槃");
+      require(take_commit(api, session) == "槃", "GBK full shape lookup failed");
+    }
+    for (int confirm : {32, 0xff0d}) {
+      type(api, session, "rong3414");
+      api->process_key(session, 0xff0d, 0);
+      auto rows = candidates(api, session);
+      require(!rows.empty(), "GBK confirmation needs a candidate");
+      require(api->process_key(session, confirm, 0), "GBK confirmation leaked key to application");
+      require(take_commit(api, session) == rows[0], "GBK confirmation failed");
+    }
+    type(api, session, "ni32pan335734");
+    open_menu(api, session);
+    select_text(api, session, "你");
+    api->process_key(session, 0xff0d, 0);
+    api->process_key(session, 0xff08, 0);
+    require(!api->get_option(session, "znabc_gbk") && contains(candidates(api, session), "你"), "undo in GBK failed to reopen previous ordinary group");
+    select_text(api, session, "你");
+    api->process_key(session, 0xff0d, 0);
+    select_text(api, session, "槃");
+    require(take_commit(api, session) == "你槃", "GBK lookup after partial selection failed");
+    require(!api->get_option(session, "znabc_gbk"), "GBK mode leaked after commit");
+    type(api, session, "shi");
+    api->process_key(session, 0xff0d, 0);
+    auto gbk_first = candidates(api, session);
+    api->process_key(session, ']', 0);
+    require(candidates(api, session)[0] != gbk_first[0], "GBK next bracket page failed");
+    api->process_key(session, '[', 0);
+    require(candidates(api, session)[0] == gbk_first[0], "GBK previous bracket page failed");
+    api->process_key(session, 0xff1b, 0);
+    require(!api->get_option(session, "znabc_gbk") && candidates(api, session).empty(), "GBK Escape failed");
+    open_menu(api, session);
+    require(candidates(api, session)[0] == first_page[0], "GBK mode leaked into ordinary lookup");
+    for (const auto& input : {"vlove", "vhello", "vabc09", "vv", "v", "vlove[", "vlove]", "v12", "v0", "v123", "v1abc"}) {
       type(api, session, input);
       api->process_key(session, ' ', 0);
       auto text = std::string(input).substr(1);
       require(take_commit(api, session) == (text.empty() ? "v" : text), "v literal commit differs: " + std::string(input));
       require(std::string(api->get_input(session)).empty(), "v literal input not cleared");
       require(!api->get_option(session, "ascii_mode"), "v literal changed language mode");
+    }
+    for (const auto& input : {"venter", "vLove", "vabc09", "vv", "v", "vlove[", "v12", "v0", "v123", "v1abc"}) {
+      type(api, session, input);
+      api->process_key(session, 0xff0d, 0);
+      auto text = std::string(input).substr(1);
+      require(take_commit(api, session) == (text.empty() ? "v" : text), "v literal Return differs: " + std::string(input));
+      require(std::string(api->get_input(session)).empty() && !api->get_option(session, "ascii_mode"), "v Return did not reset input");
     }
     type(api, session, "vLove");
     require(api->process_key(session, 'R', 1), "shifted English letter rejected");
@@ -321,7 +426,7 @@ int main(int count, char** arguments) {
     open_menu(api, session);
     require(!contains(candidates(api, session), "倪可"), "sessions shared composition history");
     api->process_key(session, 0xff0d, 0);
-    require(take_commit(api, session) == "ni32ke18", "raw Return changed input");
+    require(take_commit(api, session) == "ni32ke18", "unmatched Return with ordinary menu did not commit raw input");
     type(api, session, "ni32ke18");
     open_menu(api, session);
     require(!contains(candidates(api, session), "倪可"), "raw Return learned a word");

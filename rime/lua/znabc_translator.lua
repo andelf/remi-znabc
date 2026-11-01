@@ -51,7 +51,12 @@ function translator.func(input, segment, env)
   end
   env.abc.user_enabled = env.engine.context:get_option("znabc_user_dict")
   local single_character = env.engine.context:get_option("znabc_single_character")
-  local candidates, consumed, units, mode = env.abc:query_menu(input, single_character)
+  local candidates, consumed, units, mode
+  if env.engine.context:get_option("znabc_gbk") then
+    candidates, consumed, units, mode = env.abc:query_gbk(input)
+  else
+    candidates, consumed, units, mode = env.abc:query_menu(input, single_character)
+  end
   if consumed == 0 then
     return
   end
@@ -59,7 +64,7 @@ function translator.func(input, segment, env)
   for index, item in ipairs(candidates) do
     local item_consumed = item.consumed or consumed
     local preedit = {}
-    if mode == "shape" then
+    if mode == "shape" or mode == "symbol" or mode == "gbk" then
       preedit[1] = input
     else
       for _, unit in ipairs(units) do
@@ -68,7 +73,7 @@ function translator.func(input, segment, env)
         end
       end
     end
-    local comment = ""
+    local comment = item.comment or ""
     if item.word then
       comment = " " .. item.word
     elseif item.packed then

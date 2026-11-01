@@ -1,0 +1,24 @@
+{
+  "format_version": 1,
+  "quantity_entries": 53,
+  "symbols": {
+    "1": 94,
+    "2": 72,
+    "3": 94,
+    "4": 83,
+    "5": 86,
+    "6": 48,
+    "7": 66,
+    "8": 63,
+    "9": 76
+  },
+  "extension_records": 27927,
+  "extension_characters": 21008,
+  "rejected_extension_identities": 7,
+  "source_sha256": {
+    "winabcnt.ime": "bf8c92855873de4a7417692fc1ed655447e5bd57ff0c7ee48481351f178b0cdb",
+    "winabcx.ovl": "39a503dffcd8ba4764fd687e4c71ef5d51839a53d4d688b24178b875b7ffc300"
+  },
+  "scope": "Original quantity mapping and consistent dual-index extension records; symbols in GB2312 byte order.",
+  "unicode_mapping": "GB18030 for original extension byte identities, including private-use mappings."
+}

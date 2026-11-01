@@ -15,7 +15,7 @@ function Learning:selected(context, segment)
   local candidate = segment:get_selected_candidate()
   local record = self.records[segment.start]
   if not candidate or candidate.type ~= "znabc" or not record or
-      record.mode == "shape" or record.mode == "word_character" then
+      record.mode == "shape" or record.mode == "word_character" or record.mode == "symbol" or record.mode == "gbk" then
     return nil
   end
   local item = record.candidates[segment.selected_index + 1]

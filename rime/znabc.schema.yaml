@@ -1,17 +1,19 @@
 schema:
   schema_id: znabc
   name: 智能 ABC · 复刻
-  version: "0.2.4"
+  version: "0.3.0"
   author:
     - znabc reconstruction project
   description: |
     从原始智能 ABC 样本恢复的拼音、音形和笔形输入。
     空格前数字 1..8 输入形码；空格打开选单后数字 1..9 选字，再按空格确认。
-    v 前缀临时英文输入，空格直接提交去掉 v 的字母或数字。
+    v 前缀临时英文输入，空格或回车直接提交去掉 v 的字母或数字。
     选单中按 Tab 切换逐字选字，可组合基础词库没有的新词。
     整词候选后附首音节单字，选中后可继续转换剩余编码。
     分段选择后自动打开下一段选单，无需再次空格。
     词编码后加 [ 取首字、加 ] 取末字，支持基础词和用户词。
+    i/I 数量词空格直接上屏，v1..v9 空格打开符号选单。
+    回车打开 GBK 单字查询，无匹配时提交原码；匹配完整笔形码前缀，方括号翻页。
 
 switches:
   - name: ascii_mode
@@ -59,8 +61,8 @@ engine:
     - punct_translator
 
 speller:
-  alphabet: abcdefghijklmnopqrstuvwxyz12345678[]
-  initials: abcdefghijklmnopqrstuvwxyz12345678
+  alphabet: abcdefghijklmnopqrstuvwxyzI0123456789[]
+  initials: abcdefghijklmnopqrstuvwxyzI12345678
   delimiter: "'"
   max_code_length: 48
 

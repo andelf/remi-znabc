@@ -1,3 +1,4 @@
+local Special = require("znabc.special")
 local processor = {}
 
 local function set_selecting(context, enabled)
@@ -8,7 +9,10 @@ end
 function processor.init(env)
   local context = env.engine.context
   env.input = context.input
+  local configured = env.engine.schema.config:get_string("znabc/data_dir")
+  env.special = Special.new(configured or (rime_api.get_user_data_dir() .. "/znabc_data"))
   context:set_option("znabc_selecting", false)
+  context:set_option("znabc_gbk", false)
   context:set_option("znabc_single_character", false)
   env.update_connection = context.update_notifier:connect(function(updated)
     if updated.input == "" and updated:get_option("znabc_single_character") then
@@ -16,6 +20,7 @@ function processor.init(env)
     end
     if updated.input ~= env.input then
       env.input = updated.input
+      updated:set_option("znabc_gbk", false)
       if updated:get_option("znabc_selecting") then
         set_selecting(updated, false)
       end
@@ -45,15 +50,48 @@ function processor.func(key, env)
     end
     return 2
   end
-  if context.input:sub(1, 1) == "v" then
-    if code == 32 and not key:shift() then
-      local text = context.input:sub(2)
-      context:clear()
-      env.engine:commit_text(text ~= "" and text or "v")
+  if context.input:match("^[iI]") or (context.input == "" and (code == 105 or code == 73)) then
+    if code == 32 or code == 0xff0d then
+      local text = env.special:quantity_text(context.input)
+      if text then
+        context:clear()
+        env.engine:commit_text(text)
+      end
       return 1
     end
-    if (code >= 65 and code <= 90) or (code >= 97 and code <= 122) or
-        (code >= 48 and code <= 57 and not key:shift()) then
+    if code == 0xff1b then
+      context:clear()
+      return 1
+    end
+    if code == 0xff08 then
+      context:pop_input(1)
+      return 1
+    end
+    if code >= 33 and code <= 126 then
+      if #context.input < 20 then context:push_input(string.char(code)) end
+      return 1
+    end
+    return 2
+  end
+  if context.input:sub(1, 1) == "v" then
+    local symbol_menu = context.input:match("^v[1-9]$")
+    if (code == 32 or code == 0xff0d) and not key:shift() then
+      if symbol_menu then
+        if context:get_option("znabc_selecting") then
+          if context:has_menu() then context:confirm_current_selection() end
+        else
+          set_selecting(context, true)
+        end
+      else
+        local text = context.input:sub(2)
+        context:clear()
+        env.engine:commit_text(text ~= "" and text or "v")
+      end
+      return 1
+    end
+    if ((code >= 65 and code <= 90) or (code >= 97 and code <= 122) or
+        (code >= 48 and code <= 57 and not key:shift())) and
+        not (symbol_menu and context:get_option("znabc_selecting") and code >= 49 and code <= 57) then
       if #context.input < 48 then
         context:push_input(string.char(code))
       end
@@ -64,11 +102,37 @@ function processor.func(key, env)
     return 2
   end
   local selecting = context:get_option("znabc_selecting")
+  local gbk = context:get_option("znabc_gbk")
+  if code == 0xff0d and context.input ~= "" and context.input:sub(1, 1) ~= "v" then
+    if gbk and selecting then
+      if context:has_menu() then
+        context:confirm_current_selection()
+        return 1
+      end
+    else
+      context:set_option("znabc_gbk", true)
+      set_selecting(context, true)
+    end
+    if not context:has_menu() then
+      context:set_option("znabc_gbk", false)
+      set_selecting(context, false)
+      return 2
+    end
+    return 1
+  end
   if selecting and code == 0xff08 and context:reopen_previous_selection() then
+    context:set_option("znabc_gbk", false)
     set_selecting(context, true)
     return 1
   end
   if (code == 91 or code == 93) and context.input ~= "" and context.input:sub(1, 1) ~= "v" then
+    if gbk and selecting and context:has_menu() then
+      local segment = context.composition:back()
+      local size = env.engine.schema.config:get_int("menu/page_size") or 9
+      local start = math.floor(segment.selected_index / size) * size
+      context:highlight(math.max(0, start + (code == 91 and -size or size)))
+      return 1
+    end
     local segment = context.composition:back()
     local pending = context.input:sub((segment and segment.start or 0) + 1)
     if pending:find("[a-z]") and pending:match("^[a-z1-8']+[%[%]]?$") then
@@ -87,7 +151,8 @@ function processor.func(key, env)
       return 1
     end
   end
-  if code == 0xff09 and selecting and context:has_menu() and not context.input:match("^[1-8]+$") then
+  if code == 0xff09 and selecting and context:has_menu() and not gbk and
+      context.input:sub(1, 1) ~= "v" and not context.input:match("^[1-8]+$") then
     if context.input:match("[%[%]]$") then
       return 1
     end
@@ -116,6 +181,7 @@ function processor.func(key, env)
       (code >= 97 and code <= 122) or code == 39) then
     set_selecting(context, false)
     if code == 0xff1b then
+      context:set_option("znabc_gbk", false)
       return 1
     end
     if code == 0xff08 then

@@ -12,6 +12,7 @@ sys.path.insert(0, str(PROJECT.parent / 'analysis'))
 
 from segmentation_probe import SegmentationProbe
 from znabc_formats import BaseTables
+from verify_native import NativeProbe
 
 
 def main():
@@ -20,6 +21,21 @@ def main():
     options = arguments.parse_args()
     tables = BaseTables(PROJECT.parent / 'znabc-5.23-1203-extracted/payload')
     probe = SegmentationProbe(tables)
+    quantity_probe = NativeProbe(tables)
+    quantity_inputs = [prefix + character for prefix in ('i', 'I')
+                       for character in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$+-*/']
+    quantity_inputs += ['i', 'I', 'i123', 'I123', 'i1b2s3', 'I1b2s3', 'i2006n6y3sr', 'iqk', 'i12.5']
+    quantity_process = subprocess.run([options.lua, str(PROJECT / 'tests/quantity_dump.lua'), str(PROJECT)],
+                                      input='\n'.join(quantity_inputs) + '\n', text=True, capture_output=True, check=True)
+    quantity_results = quantity_process.stdout.splitlines()
+    assert len(quantity_results) == len(quantity_inputs)
+    for text, actual in zip(quantity_inputs, quantity_results):
+        quantity_probe.machine.mem_write(0x621045, text.encode('ascii') + b'\0')
+        quantity_probe.write_integer(0x621042, len(text), 2)
+        result = quantity_probe.call(0x613578, (2 if text[0] == 'I' else 3,))
+        size = quantity_probe.integer(0x622F54)
+        expected = bytes(quantity_probe.machine.mem_read(0x6266C0, size)).decode('gbk') if result == 1 else '<invalid>'
+        assert actual == expected, (text, expected, actual)
     syllables = sorted({row['pinyin'] for row in tables.character_rows() if row['status'] == 'syllable'})
     examples = [item['input'] for item in json.loads((PROJECT.parent / 'analysis/evidence/segmentation-verification.json').read_text())['segmentation']]
     examples += syllables
@@ -85,7 +101,8 @@ def main():
             assert values[2:] == expected, (text, expected[:12], values[2:14])
             compared_phrases += 1
     print(json.dumps({'passed': True, 'parser_original_x86_comparisons': len(examples),
-                      'character_candidate_queries': len(character_queries), 'phrase_candidate_queries': compared_phrases}, indent=2))
+                      'character_candidate_queries': len(character_queries), 'phrase_candidate_queries': compared_phrases,
+                      'quantity_original_x86_comparisons': len(quantity_inputs)}, indent=2))
 
 
 if __name__ == '__main__':
