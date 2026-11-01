@@ -89,5 +89,30 @@ for _, input in ipairs({"shi[", "3235]", "zhongguoren[", "ni32hao43]", "shi[xx",
   checks = checks + 1
 end
 checks = checks + 3
+for _, input in ipairs({"wenti", "ni32hao63", "zhongguoren", "wt"}) do
+  local phrases, consumed, _, mode = engine:query(input)
+  assert(mode == "phrase", input)
+  local characters, character_consumed = engine:query(input, true)
+  local menu, menu_consumed = engine:query_menu(input)
+  assert(menu_consumed == consumed and #menu == #phrases + #characters, input)
+  for index, phrase in ipairs(phrases) do
+    assert(menu[index] == phrase and not phrase.consumed, input)
+  end
+  for index, character in ipairs(characters) do
+    local item = menu[#phrases + index]
+    assert(item.text == character.text and item.code == character.code, input)
+    assert(item.consumed == character_consumed and not character.consumed, input)
+  end
+  checks = checks + 1
+end
+for _, input in ipairs({"wen", "3235", "shijie[", "shijie]", "shi[", "999"}) do
+  local rows, consumed, _, mode = engine:query(input)
+  local menu, menu_consumed, _, menu_mode = engine:query_menu(input)
+  assert(#rows == #menu and consumed == menu_consumed and mode == menu_mode, input)
+  checks = checks + 1
+end
+local only_characters = engine:query_menu("wenti", true)
+assert(only_characters[1].text == "问" and not only_characters[1].codes)
+checks = checks + 1
 print("engine checks passed: " .. (checks + 7))
 

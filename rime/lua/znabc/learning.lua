@@ -19,8 +19,9 @@ function Learning:selected(context, segment)
     return nil
   end
   local item = record.candidates[segment.selected_index + 1]
-  if not item or item.text ~= candidate.text or candidate._end ~= segment.start + record.consumed or
-      context.input:sub(segment.start + 1, candidate._end) ~= record.input:sub(1, record.consumed) then
+  local consumed = item and (item.consumed or record.consumed)
+  if not item or item.text ~= candidate.text or candidate._end ~= segment.start + consumed or
+      context.input:sub(segment.start + 1, candidate._end) ~= record.input:sub(1, consumed) then
     return nil
   end
   return item.codes or (item.code and {item.code})

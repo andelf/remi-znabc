@@ -173,5 +173,26 @@ function Engine:query(input, single_character)
   return candidates, unit.finish, units, "character"
 end
 
+function Engine:query_menu(input, single_character)
+  local candidates, consumed, units, mode = self:query(input, single_character)
+  if mode ~= "phrase" then
+    return candidates, consumed, units, mode
+  end
+  local result = {}
+  for _, candidate in ipairs(candidates) do
+    result[#result + 1] = candidate
+  end
+  local characters, character_consumed = self:query(input, true)
+  for _, character in ipairs(characters) do
+    local candidate = {}
+    for key, value in pairs(character) do
+      candidate[key] = value
+    end
+    candidate.consumed = character_consumed
+    result[#result + 1] = candidate
+  end
+  return result, consumed, units, mode
+end
+
 return Engine
 

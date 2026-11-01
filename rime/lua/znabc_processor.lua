@@ -114,6 +114,10 @@ function processor.func(key, env)
     if code == 0xff1b then
       return 1
     end
+    if code == 0xff08 then
+      context:pop_input(1)
+      return 1
+    end
   end
   if code >= 49 and code <= 56 then
     if #context.input >= 48 then

@@ -117,6 +117,9 @@ int main(int count, char** arguments) {
       type(api, session, "fuke");
       open_menu(api, session);
       require(contains(candidates(api, session), "复刻"), "manually segmented word did not survive restart");
+      type(api, session, "wenti");
+      open_menu(api, session);
+      require(contains(candidates(api, session), "雯梯"), "mixed-menu word did not survive restart");
       api->destroy_session(session);
       api->finalize();
       std::cout << "Rime learning restart checks passed\n";
@@ -167,7 +170,7 @@ int main(int count, char** arguments) {
     select_text(api, session, "你");
     require(take_commit(api, session).empty(), "prefix before word character committed early");
     api->process_key(session, ']', 0);
-    open_menu(api, session);
+    require(candidates(api, session)[0] == "界", "suffix did not update automatically opened menu");
     select_text(api, session, "界");
     require(take_commit(api, session) == "你界", "word character after selected prefix failed");
     type(api, session, "ni32jie");
@@ -211,9 +214,8 @@ int main(int count, char** arguments) {
     require(!contains(expected, "你好") && !expected.empty(), "shape rejection/fallback failed");
     api->process_key(session, ' ', 0);
     require(std::string(api->get_input(session)).find("hao43") != std::string::npos, "partial selection lost remaining input");
-    require(candidates(api, session).empty(), "partial selection did not return to editing");
-    open_menu(api, session);
-    require(api->get_option(session, "znabc_selecting"), "remaining input cannot enter selection");
+    require(candidates(api, session).empty(), "invalid remainder unexpectedly has candidates");
+    require(api->get_option(session, "znabc_selecting"), "partial selection did not preserve selection state");
     api->process_key(session, ' ', 0);
     require(take_commit(api, session).empty(), "empty menu committed raw code");
     type(api, session, "ke18");
@@ -270,8 +272,7 @@ int main(int count, char** arguments) {
     open_menu(api, session);
     require(!contains(candidates(api, session), "倪倪"), "learning test needs a fresh user directory");
     api->process_key(session, '2', 0);
-    require(take_commit(api, session).empty() && candidates(api, session).empty(), "partial numeric selection committed early or opened next menu");
-    open_menu(api, session);
+    require(take_commit(api, session).empty() && contains(candidates(api, session), "倪"), "partial numeric selection did not open next menu");
     api->process_key(session, '2', 0);
     require(take_commit(api, session) == "倪倪", "new word composition failed");
     for (int uses = 0; uses < 3; ++uses) {
@@ -328,7 +329,6 @@ int main(int count, char** arguments) {
     type(api, session, "ni32ke18");
     open_menu(api, session);
     api->process_key(session, '2', 0);
-    open_menu(api, session);
     api->process_key(session, '1', 0);
     require(take_commit(api, session) == "倪可", "frozen composition failed");
     type(api, session, "ni32ke18");
@@ -341,7 +341,6 @@ int main(int count, char** arguments) {
     open_menu(api, session);
     require(!contains(candidates(api, session), "倪可"), "cancelled composition was learned");
     api->process_key(session, '2', 0);
-    open_menu(api, session);
     api->process_key(session, '1', 0);
     require(take_commit(api, session) == "倪可", "second new word composition failed");
     type(api, session, "ni32ke18");
@@ -350,7 +349,6 @@ int main(int count, char** arguments) {
     require(api->process_key(session, 0xffff, 4), "Ctrl+Delete rejected");
     require(!contains(candidates(api, session), "倪可"), "user word deletion failed");
     api->process_key(session, '2', 0);
-    open_menu(api, session);
     api->process_key(session, '1', 0);
     require(take_commit(api, session) == "倪可", "deleted word reconstruction failed");
     type(api, session, "ni32ke18");
@@ -366,9 +364,8 @@ int main(int count, char** arguments) {
     require(contains(candidates(api, session), "复课"), "second Tab did not restore phrases");
     api->process_key(session, 0xff09, 0);
     select_text(api, session, "复");
-    require(take_commit(api, session).empty() && candidates(api, session).empty(), "fu selection committed prematurely");
+    require(take_commit(api, session).empty() && contains(candidates(api, session), "刻"), "fu selection did not open ke candidates");
     require(api->get_option(session, "znabc_single_character"), "character selection did not persist for remainder");
-    open_menu(api, session);
     select_text(api, session, "刻");
     require(take_commit(api, session) == "复刻", "manual character composition failed");
     require(!api->get_option(session, "znabc_single_character"), "character selection leaked into next composition");
@@ -392,6 +389,72 @@ int main(int count, char** arguments) {
     api->process_key(session, 0xff1b, 0);
     api->process_key(session, 0xff1b, 0);
     require(!api->get_option(session, "znabc_single_character"), "cancelled composition retained character mode");
+    api->clear_composition(session);
+    type(api, session, "wenti");
+    open_menu(api, session);
+    auto mixed = candidates(api, session);
+    require(mixed.size() >= 6 && mixed[0] == "问题" && mixed[1] == "文体" &&
+        mixed[2] == "问" && mixed[3] == "文" && mixed[5] == "稳", "phrase-first mixed candidates differ");
+    select_text(api, session, "雯");
+    require(take_commit(api, session).empty() && !candidates(api, session).empty(), "mixed character did not open next menu");
+    require(!api->get_option(session, "znabc_single_character"), "mixed menu unexpectedly enabled Tab mode");
+    require(candidates(api, session)[0] == "提", "mixed character did not leave ti for conversion");
+    select_text(api, session, "梯");
+    require(take_commit(api, session) == "雯梯", "mixed characters consumed wrong input span");
+    type(api, session, "wenti");
+    open_menu(api, session);
+    require(candidates(api, session)[0] == "雯梯" && first_comment(api, session) == "〔新词 0/3〕", "mixed characters were not learned");
+    select_text(api, session, "文体");
+    require(take_commit(api, session) == "文体", "mixed menu changed full-word commit");
+    api->set_option(session, "znabc_learning", False);
+    type(api, session, "wenti");
+    open_menu(api, session);
+    select_text(api, session, "文");
+    require(candidates(api, session)[0] == "提", "next segment did not reset candidate page");
+    api->process_key(session, ' ', 0);
+    require(take_commit(api, session) == "文提", "space did not confirm next segment immediately");
+    type(api, session, "wenti");
+    open_menu(api, session);
+    select_text(api, session, "文");
+    auto before_escape = std::string(api->get_input(session));
+    api->process_key(session, 0xff1b, 0);
+    require(candidates(api, session).empty() && std::string(api->get_input(session)) == before_escape &&
+        !api->get_option(session, "znabc_selecting"), "Escape did not close automatically opened menu");
+    api->process_key(session, '3', 0);
+    require(std::string(api->get_input(session)) == before_escape + "3" &&
+        candidates(api, session).empty() && take_commit(api, session).empty(), "numeric shape editing after Escape failed");
+    open_menu(api, session);
+    require(!candidates(api, session).empty(), "edited remainder cannot reopen menu");
+    type(api, session, "wenti");
+    open_menu(api, session);
+    select_text(api, session, "文");
+    auto before_backspace = std::string(api->get_input(session));
+    api->process_key(session, 0xff08, 0);
+    require(std::string(api->get_input(session)) == before_backspace.substr(0, before_backspace.size() - 1) &&
+        candidates(api, session).empty() && take_commit(api, session).empty(), "Backspace did not edit automatically opened remainder: " + std::string(api->get_input(session)) +
+          ", menu=" + std::to_string(candidates(api, session).size()) + ", selecting=" +
+          std::to_string(api->get_option(session, "znabc_selecting")) + ", caret=" + std::to_string(api->get_caret_pos(session)));
+    type(api, session, "wenshijie");
+    open_menu(api, session);
+    select_text(api, session, "文");
+    require(candidates(api, session)[0] == "世界", "next segment lost phrase matching");
+    select_text(api, session, "世界");
+    require(take_commit(api, session) == "文世界", "remaining phrase commit failed");
+    type(api, session, "zhongguoren");
+    open_menu(api, session);
+    select_text(api, session, "中国");
+    require(contains(candidates(api, session), "人") && take_commit(api, session).empty(), "partial phrase did not open next menu");
+    select_text(api, session, "人");
+    require(take_commit(api, session) == "中国人", "partial phrase continuation failed");
+    api->set_option(session, "znabc_user_dict", False);
+    type(api, session, "ni32ni32");
+    open_menu(api, session);
+    api->process_key(session, '2', 4);
+    require(contains(candidates(api, session), "倪") && take_commit(api, session).empty(), "Ctrl+number did not open next menu");
+    api->process_key(session, '2', 4);
+    require(take_commit(api, session) == "倪倪", "consecutive Ctrl+number selection failed");
+    api->set_option(session, "znabc_user_dict", True);
+    api->set_option(session, "znabc_learning", True);
     api->clear_composition(session);
     for (const auto& bracket : {'[', ']'}) {
       auto handled = api->process_key(session, bracket, 0);

@@ -34,8 +34,7 @@ function translator.init(env)
     end
   end)
   env.select_connection = context.select_notifier:connect(function(selected)
-    if #selected.input > 0 then
-      selected:set_option("znabc_selecting", false)
+    if #selected.input > 0 and selected:get_option("znabc_selecting") then
       selected:refresh_non_confirmed_composition()
     end
   end)
@@ -52,22 +51,23 @@ function translator.func(input, segment, env)
   end
   env.abc.user_enabled = env.engine.context:get_option("znabc_user_dict")
   local single_character = env.engine.context:get_option("znabc_single_character")
-  local candidates, consumed, units, mode = env.abc:query(input, single_character)
+  local candidates, consumed, units, mode = env.abc:query_menu(input, single_character)
   if consumed == 0 then
     return
   end
   env.learning:record(input, segment, candidates, consumed, mode)
-  local preedit = {}
-  if mode == "shape" then
-    preedit[1] = input
-  else
-    for _, unit in ipairs(units) do
-      if unit.finish <= consumed then
-        preedit[#preedit + 1] = input:sub(unit.start + 1, unit.finish)
+  for index, item in ipairs(candidates) do
+    local item_consumed = item.consumed or consumed
+    local preedit = {}
+    if mode == "shape" then
+      preedit[1] = input
+    else
+      for _, unit in ipairs(units) do
+        if unit.finish <= item_consumed then
+          preedit[#preedit + 1] = input:sub(unit.start + 1, unit.finish)
+        end
       end
     end
-  end
-  for index, item in ipairs(candidates) do
     local comment = ""
     if item.word then
       comment = " " .. item.word
@@ -81,7 +81,7 @@ function translator.func(input, segment, env)
         comment = "〔常用〕"
       end
     end
-    local candidate = Candidate("znabc", segment.start, segment.start + consumed, item.text, comment)
+    local candidate = Candidate("znabc", segment.start, segment.start + item_consumed, item.text, comment)
     candidate.preedit = table.concat(preedit, " ")
     if mode == "word_character" then
       candidate.preedit = candidate.preedit .. input:sub(-1)
