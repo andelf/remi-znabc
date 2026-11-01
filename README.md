@@ -1,40 +1,89 @@
-# 智能 ABC · Rime 复刻项目
+<div align="center">
 
-当前可安装版本：**0.2.2**。在 Rime 上实现原样本的基础拼音、音形后缀、纯笔形输入，支持两阶段选字、`Tab` 逐字选择、`[` / `]` 以词定字、`v` 前缀临时英文输入，以及分级用户词库和自动造词。
+# 智能 ABC · 复刻
 
-## 安装测试
+**在 Rime 中，找回智能 ABC 的输入手感。**
 
-前提：已安装 Rime 前端，且包含 **librime-lua**。本方案是 Lua 插件与数据包，无需编译 C++。
+`remi-znabc` · v0.2.2 · Lua 输入引擎 · 基础词库随仓库提供
 
-使用 `dist/rime-znabc-0.2.2.zip`，解压后进入里面的 `rime-znabc-0.2.2` 目录。
-安装器需要 Python 3.8 或以上，仅使用标准库。下面任选符合你的前端的一条命令：
+全拼 / 简拼 · 数字音形 · 逐字造词 · 以词定字 · 临时英文
+
+</div>
+
+[快速安装](#快速安装) · [输入体验](#输入体验) · [键位速查](#键位速查) · [用户词库](#自动造词与分级用户词库) · [开发](#开发)
+
+---
+
+把拼音、形码和选字分成两个清楚的阶段：**空格前安心编码，空格后再选候选。**
+基于恢复的字码、词库与基础排序实现，配合独立用户词库，支持日常使用中的逐字组合与新词学习。
+
+| 输入方式 | 一眼看懂 |
+| --- | --- |
+| 拼音与音形 | `nihao`、`nh`、`ni32hao63` → 你好 |
+| 两阶段选字 | `ni32` → 空格打开选单 → `2` 选择“倪” |
+| 逐字组合 | `fuke` → 空格 → `Tab` → 分别选“复”“刻”，并学习“复刻” |
+| 以词定字 | `shijie[` 取“世”，`shijie]` 取“界” |
+| 临时英文 | `vlove` → 空格 → `love`，无需切换中西文 |
+
+## 快速安装
+
+需要已安装 **Rime 前端 + librime-lua**；自动安装还需要 **Python 3.8+**。
+项目由 Lua 引擎和数据组成，使用时无需编译 C++。
+
+### 1. 获取项目
+
+```sh
+git clone https://github.com/andelf/remi-znabc.git
+cd remi-znabc
+```
+
+也可以下载仓库 ZIP 并解压。基础词库已随仓库提供，无需另找原始程序或重新提取数据。
+
+### 2. 安装到 Rime 用户目录
+
+macOS 鼠须管：
+
+```sh
+python3 tools/install.py --user-dir "$HOME/Library/Rime"
+```
+
+<details>
+<summary>Windows / Linux 安装命令</summary>
+
+Windows 小狼毫（PowerShell）：
 
 ```powershell
-py install.py --user-dir "$env:APPDATA\Rime"
+py tools/install.py --user-dir "$env:APPDATA\Rime"
 ```
+
+Linux fcitx5-rime：
 
 ```sh
-python3 install.py --user-dir "$HOME/Library/Rime"
+python3 tools/install.py --user-dir "$HOME/.local/share/fcitx5/rime"
 ```
+
+Linux ibus-rime：
 
 ```sh
-python3 install.py --user-dir "$HOME/.local/share/fcitx5/rime"
+python3 tools/install.py --user-dir "$HOME/.config/ibus/rime"
 ```
 
-```sh
-python3 install.py --user-dir "$HOME/.config/ibus/rime"
-```
+</details>
 
-以上依次对应小狼毫、鼠须管、fcitx5-rime、ibus-rime 的常见用户目录。
-若曾修改过用户目录，以前端菜单打开的“用户文件夹”为准。
-安装器会复制方案、Lua 和数据，向已有方案列表追加 `znabc`，并备份覆盖文件到用户目录的 `.znabc-backups/`。
-可以先加 `--dry-run` 查看计划。复杂的 `default.custom.yaml` 格式会明确报错并停止写入；此时使用 `--no-enable`，手动加入方案列表。
+若曾修改用户目录，以前端菜单打开的“用户文件夹”为准。
+安装器会保留已有方案列表、追加 `znabc`，覆盖前备份到 `.znabc-backups/`，个人词库不受更新影响。
+可加 `--dry-run` 预览；复杂的 `default.custom.yaml` 格式会报错停止，此时加 `--no-enable` 并手动启用方案。
 
-完成后在前端执行 **重新部署**，打开方案选单，选 **智能 ABC · 复刻**。
+### 3. 重新部署
 
-### 没有 Python 时手动安装
+在 Rime 前端菜单执行 **重新部署**，再打开方案选单，选择 **智能 ABC · 复刻**。
 
-把安装包 `rime/` 里面的以下三个项目复制到 Rime 用户目录根部：
+先试一遍：输入 `nihao` → 空格打开选单 → 再按空格上屏 **你好**。
+
+<details>
+<summary>没有 Python？手动复制安装</summary>
+
+把仓库 `rime/` 内以下三个项目复制到 Rime 用户目录根部：
 
 ```text
 znabc.schema.yaml
@@ -53,7 +102,36 @@ patch:
 
 不要把第二个 `patch:` 粘贴到已有 `patch:` 的文件末尾。重新部署后切换方案。
 
-## 键位与测试样例
+</details>
+
+## 输入体验
+
+### 空格前编码，空格后选字
+
+```text
+ni32hao63  ── 空格 ──→  1. 你好  ── 空格 / 1 ──→  你好
+    编码阶段                  选字阶段                  上屏
+```
+
+编码阶段的数字 `1..8` 参与字形过滤，候选打开后数字用于选字，两种用途互不抢占。
+候选只匹配前一段时，选中后保留后面的编码，再按空格继续选择。
+
+### 想要的词不在候选里？逐字选，再记住它
+
+`fuke` 的基础候选是“复课、妇科”。空格后按 `Tab`，改为先选 `fu` 的“复”，再选 `ke` 的“刻”。
+完成后上屏 **复刻**，并自动收录为新词；下次输入 `fuke` 就能整词选择。
+
+### 用熟悉的词，取出需要的字
+
+`shijie[` → **世**，`shijie]` → **界**。同样先按空格看候选，再确认上屏。
+来源词显示在候选旁，基础词和自己学过的词都能使用。详细规则见[以词定字](#以词定字)。
+
+### 一小段英文，一个 v 就够
+
+`vlove` → 空格 → **love**，`vLove` → 空格 → **Love**。
+保留大小写与数字，提交后继续中文输入，不需要切换中西文。
+
+## 键位速查
 
 | 按键 | 当前行为 |
 | --- | --- |
@@ -79,7 +157,8 @@ patch:
 临时英文示例：`vlove` → 空格直接上屏 `love`，无需第二次空格；`vLove` → 空格上屏 `Love`。
 临时英文支持退格修改和 Esc 取消，提交后继续中文输入。单独 `v` → 空格上屏 `v`，`vv` → 空格也上屏 `v`。
 
-建议实际安装后测试：
+<details>
+<summary>更多输入样例：音形过滤、纯笔形与音节切分</summary>
 
 | 输入 | 预期 |
 | --- | --- |
@@ -92,6 +171,8 @@ patch:
 | `ni32` → 空格 → `2` | 上屏“倪”，数字 `2` 不追加到编码 |
 | `xian` / `xi'an` | 前者按 xian 查询；后者显示 xi、an 两个音节 |
 | `changan` / `chang'an` | 前者切 chan + gan；后者切 chang + an |
+
+</details>
 
 候选词只覆盖输入前半段时，选中后保留剩余编码并返回编码阶段；再次按空格打开剩余编码的选单。本版不自动把多个短词拼成一个整句候选。
 
@@ -207,13 +288,15 @@ tests/                      Lua、原 x86 对照和真实 Rime API 测试
 python3 tools/install.py --user-dir "$HOME/Library/Rime"
 ```
 
-在鼠须管菜单执行“重新部署”后选择“智能 ABC · 复刻”。其他平台的用户目录见安装测试章节。
+在鼠须管菜单执行“重新部署”后选择“智能 ABC · 复刻”。其他平台的用户目录见[快速安装](#快速安装)。
 
 构建完整安装包：
 
 ```sh
 python3 tools/package.py
 ```
+
+输出为 `dist/rime-znabc-0.2.2.zip` 及 SHA-256 校验文件。安装包解压后使用根目录的 `install.py`，例如 `python3 install.py --user-dir "$HOME/Library/Rime"`。
 
 仅在重新提取基础词库时运行 `python3 tools/build_data.py`；该工具会引用外部工作区的 `analysis/znabc_formats.py` 和已解压的样本，这些文件不在本仓库中。日常开发、安装、打包和 Lua 内核测试直接使用仓库中的词库；输入法运行不依赖 Python。
 词库按前两字首字母分成 516 个桶，按需读取并缓存，避免每次按键全表扫描。
