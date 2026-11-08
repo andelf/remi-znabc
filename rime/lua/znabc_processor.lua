@@ -8,6 +8,32 @@ local function set_selecting(context, enabled)
   affix_selection.apply(context)
 end
 
+local function finish_selection(context)
+  local limit = #context.input + 1
+  for iteration = 1, limit do
+    if context.input == "" then
+      context:set_option("znabc_selecting", false)
+      context:set_option("znabc_gbk", false)
+      context:set_option("znabc_single_character", false)
+      return
+    end
+    if not context:has_menu() then break end
+    local segment = context.composition:back()
+    local candidate = segment and segment:get_selected_candidate()
+    if not candidate or type(candidate._end) ~= "number" or
+        candidate._end <= segment.start or candidate._end > #context.input then
+      break
+    end
+    local previous_start = segment.start
+    if not context:confirm_current_selection() then break end
+    if context.input ~= "" then
+      local remaining = context.composition:back()
+      if not remaining or remaining.start <= previous_start then break end
+    end
+  end
+  set_selecting(context, false)
+end
+
 function processor.init(env)
   local context = env.engine.context
   env.input = context.input
@@ -51,6 +77,15 @@ function processor.func(key, env)
       return 1
     end
     return 2
+  end
+  if not key:shift() and code >= 97 and code <= 122 and
+      context:get_option("znabc_selecting") and not context.input:match("^[iIv]") then
+    if not context:get_option("znabc_gbk") and
+        context.caret_pos == #context.input then
+      finish_selection(context)
+    else
+      set_selecting(context, false)
+    end
   end
   if context.input:match("^[iI]") or (context.input == "" and (code == 105 or code == 73)) then
     if code == 32 or code == 0xff0d then
@@ -180,8 +215,7 @@ function processor.func(key, env)
     end
     return 1
   end
-  if selecting and (code == 0xff1b or code == 0xff08 or
-      (code >= 97 and code <= 122) or code == 39) then
+  if selecting and (code == 0xff1b or code == 0xff08 or code == 39) then
     set_selecting(context, false)
     if code == 0xff1b then
       context:set_option("znabc_gbk", false)
