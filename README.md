@@ -182,6 +182,7 @@ wenti → 空格 → 选择“文” → 自动显示 ti 候选 → 选择“体
 | `1..8` | 编码阶段输入形码，包括纯数字笔形输入；选单打开后选择对应候选 |
 | `'` | 显式音节分隔 |
 | 空格 | 首次打开选单；之后确认当前高亮候选，尚有剩余编码时自动打开下一段 |
+| 选单中继续输入小写字母 | 完成旧串各段的当前高亮候选并上屏，再开始新编码；无候选或光标在编码中间时返回旧串编辑 |
 | `1..9`（选字阶段） | 选择当前页对应候选；无对应候选时保持选单 |
 | `Tab`（拼音选单打开时） | 切换整词优先／逐字选字，保留输入编码 |
 | 词编码后加 `[` / `]` | 以词定字：取候选词的首字／末字；空格打开选单后选择 |
@@ -199,7 +200,10 @@ wenti → 空格 → 选择“文” → 自动显示 ti 候选 → 选择“体
 | `Ctrl+Delete`（选单打开时） | 删除高亮用户词；基础词只清除个人使用记录，不删除基础词条 |
 
 编码阶段不显示候选，数字不用于选字。第一次空格进入选字阶段，分段选中后保持选字阶段，数字不再追加形码。
-选单打开后输入字母或分隔符会返回编码阶段继续输入；没有候选时，空格不会把原始编码上屏。
+
+例如 `zhongguo → 空格 → difang → 空格 → 空格` 会先提交“中国”，再提交“地方”。连续打字会沿用人工高亮和剩余段的附加成分预选；最后一词仍需显式确认。要继续修改旧编码，先按 `Esc` 关闭选单，再输入字母。GBK 选单和 `i` / `I` / `v` 特殊输入保持各自的编辑规则。
+
+选单打开后输入分隔符会返回编码阶段继续输入；没有候选时，空格不会把原始编码上屏。
 输入句点等中文标点仍可确认当前首选并输出标点。
 临时英文示例：`vlove` → 空格直接上屏 `love`，无需第二次空格；`vLove` → 空格上屏 `Love`。
 临时英文支持退格修改和 Esc 取消，提交后继续中文输入。单独 `v` → 空格上屏 `v`，`vv` → 空格也上屏 `v`。
@@ -425,6 +429,7 @@ lua5.4 tests/test_engine.lua .
 lua5.4 tests/test_learning.lua .
 lua5.4 tests/test_special.lua .
 lua5.4 tests/test_affixes.lua .
+lua5.4 tests/test_processor.lua .
 python3 -m unittest discover -s tests -p 'test_installer.py' -v
 python3 -m unittest discover -s tests -p 'test_special_data.py' -v
 ```
@@ -438,5 +443,6 @@ uv run --no-project --with unicorn python tests/test_affix_native.py --lua /abso
 
 `tests/rime_smoke.cc` 通过真实 `librime` 与 `librime-lua` 测试部署、逐键输入、选词上屏、部分消费、西文模式和学习。每次完整测试必须使用全新测试用户目录，复制 `tests/fixtures/default.yaml` 为该目录的 `default.yaml`，并使用安装器安装方案。
 同一测试目录随后再次运行程序并附加 `--learning-reload`，验证常用词和删除标记在进程重启后保留。Linux 下编译需要 Rime 开发头文件及库。
+连续输入专项另用全新目录安装后执行 `rime_smoke USER_DIR LUA_PLUGIN --continuous-input`，覆盖多段确认、人工高亮、附加成分、非首页候选、特殊模式入口、失败回退与学习边界。不要复用完整测试或专项测试已写入学习数据的目录。
 本工作区的依赖只解压在 `.cache/runtime/`，没有改动系统 Rime 安装。
 验证范围与版本记录见 `VERIFICATION.txt`。Windows / macOS 前端的实际界面仍由本轮人工安装验证。

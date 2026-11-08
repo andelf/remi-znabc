@@ -57,7 +57,8 @@ std::string first_comment(RimeApi* api, RimeSessionId session) {
   RimeContext context{};
   RIME_STRUCT_INIT(RimeContext, context);
   require(api->get_context(session, &context), "get_context failed");
-  std::string result = context.menu.num_candidates ? context.menu.candidates[0].comment : "";
+  const char* comment = context.menu.num_candidates ? context.menu.candidates[0].comment : nullptr;
+  std::string result = comment ? comment : "";
   api->free_context(&context);
   return result;
 }
@@ -83,9 +84,154 @@ void select_text(RimeApi* api, RimeSessionId session, const std::string& text) {
   throw std::runtime_error("candidate missing: " + text);
 }
 
+void check_continuous_input(RimeApi* api, RimeSessionId session) {
+  api->set_option(session, "znabc_learning", False);
+  auto expect = [&](const std::string& committed, const std::string& input) {
+    auto actual = take_commit(api, session);
+    require(actual == committed, "continuous input: expected commit [" + committed + "], got [" + actual + "]");
+    require(std::string(api->get_input(session)) == input, "continuous input: unexpected raw input: " + input);
+    require(candidates(api, session).empty(), "continuous input: menu remained open");
+    require(!api->get_option(session, "znabc_selecting"), "continuous input: selection remained enabled");
+    require(!api->get_option(session, "znabc_gbk"), "continuous input: GBK remained enabled");
+  };
+  for (const auto& example : std::vector<std::pair<std::string, std::string>>{
+      {"zhongguo", "中国"}, {"zhongguoren", "中国人"}, {"zhongguodifang", "中国地方"},
+      {"shijie]", "界"}, {"3235", "仂"}}) {
+    type(api, session, example.first);
+    open_menu(api, session);
+    require(api->process_key(session, 'd', 0), "continuation key rejected");
+    expect(example.second, "d");
+  }
+  type(api, session, "zhongguo");
+  open_menu(api, session);
+  for (unsigned char character : std::string("difang")) api->process_key(session, character, 0);
+  expect("中国", "difang");
+  open_menu(api, session);
+  api->process_key(session, ' ', 0);
+  expect("地方", "");
+
+  type(api, session, "wenti");
+  open_menu(api, session);
+  require(api->highlight_candidate(session, 1), "cannot highlight 文体");
+  api->process_key(session, 'd', 0);
+  expect("文体", "d");
+  type(api, session, "wenti");
+  open_menu(api, session);
+  select_text(api, session, "文");
+  api->process_key(session, 'd', 0);
+  expect("文体", "d");
+
+  type(api, session, "shi");
+  open_menu(api, session);
+  api->process_key(session, 0xff56, 0);
+  auto later_page = candidates(api, session);
+  require(!later_page.empty(), "second page unavailable");
+  api->process_key(session, 'd', 0);
+  expect(later_page[0], "d");
+
+  for (unsigned char character : std::string("iv")) {
+    type(api, session, "zhongguo");
+    open_menu(api, session);
+    api->process_key(session, character, 0);
+    expect("中国", std::string(1, character));
+    for (unsigned char suffix : character == 'i' ? std::string("1") : std::string("love")) {
+      api->process_key(session, suffix, 0);
+    }
+    api->process_key(session, ' ', 0);
+    expect(character == 'i' ? "一" : "love", "");
+  }
+  for (const auto& input : {"ni32hao43", "hao43"}) {
+    type(api, session, input);
+    open_menu(api, session);
+    api->process_key(session, 'd', 0);
+    expect("", std::string(input) + "d");
+  }
+  type(api, session, "rong3414");
+  api->process_key(session, 0xff0d, 0);
+  require(api->get_option(session, "znabc_gbk") && !candidates(api, session).empty(),
+      "GBK menu unavailable");
+  api->process_key(session, 'd', 0);
+  expect("", "rong3414d");
+  type(api, session, "v1");
+  open_menu(api, session);
+  api->process_key(session, 'd', 0);
+  expect("", "v1d");
+  api->process_key(session, ' ', 0);
+  expect("1d", "");
+  type(api, session, "zhongguo");
+  open_menu(api, session);
+  api->process_key(session, 0xff1b, 0);
+  api->process_key(session, 'd', 0);
+  expect("", "zhongguod");
+  type(api, session, "zhongguo");
+  open_menu(api, session);
+  api->set_caret_pos(session, 5);
+  api->process_key(session, 'd', 0);
+  expect("", "zhongdguo");
+  type(api, session, "zhongguo");
+  open_menu(api, session);
+  api->process_key(session, '\'', 0);
+  expect("", "zhongguo'");
+  type(api, session, "zhongguo");
+  open_menu(api, session);
+  api->process_key(session, 0xff09, 0);
+  require(api->get_option(session, "znabc_single_character"), "Tab mode not enabled");
+  api->process_key(session, 'd', 0);
+  expect("中过", "d");
+  require(!api->get_option(session, "znabc_single_character"), "Tab mode leaked to next input");
+
+  api->set_option(session, "znabc_learning", True);
+  type(api, session, "ni32ni32hao43");
+  open_menu(api, session);
+  api->process_key(session, 'd', 0);
+  expect("", "ni32ni32hao43d");
+  type(api, session, "nini");
+  open_menu(api, session);
+  require(!contains(candidates(api, session), "你你"), "failed completion learned a partial word");
+  type(api, session, "shijie");
+  open_menu(api, session);
+  auto source_comment = first_comment(api, session);
+  for (const auto& example : std::vector<std::pair<std::string, std::string>>{
+      {"shijie]", "界"}, {"3235", "仂"}}) {
+    type(api, session, example.first);
+    open_menu(api, session);
+    api->process_key(session, 'd', 0);
+    expect(example.second, "d");
+  }
+  type(api, session, "shijie");
+  open_menu(api, session);
+  require(first_comment(api, session) == source_comment, "extraction changed source usage");
+  type(api, session, "zhongguo");
+  open_menu(api, session);
+  for (unsigned char character : std::string("difang")) api->process_key(session, character, 0);
+  expect("中国", "difang");
+  open_menu(api, session);
+  api->process_key(session, ' ', 0);
+  expect("地方", "");
+  type(api, session, "zhongguodifang");
+  open_menu(api, session);
+  require(!contains(candidates(api, session), "中国地方"), "learned across separate inputs");
+  api->process_key(session, 'd', 0);
+  expect("中国地方", "d");
+  type(api, session, "zhongguodifang");
+  open_menu(api, session);
+  require(contains(candidates(api, session), "中国地方"), "whole-input learning missing");
+  type(api, session, "ni32ni32");
+  open_menu(api, session);
+  select_text(api, session, "倪");
+  require(api->highlight_candidate(session, 1), "cannot highlight second 倪");
+  api->process_key(session, 'd', 0);
+  expect("倪倪", "d");
+  type(api, session, "nini");
+  open_menu(api, session);
+  require(contains(candidates(api, session), "倪倪") && first_comment(api, session) == "〔新词 0/3〕",
+      "continuous input learning missing or counted more than once");
+}
+
 int main(int count, char** arguments) {
   try {
-    require(count == 3 || count == 4, "usage: rime_smoke USER_DIR LUA_PLUGIN [--learning-reload]");
+    require(count == 3 || count == 4,
+        "usage: rime_smoke USER_DIR LUA_PLUGIN [--learning-reload|--continuous-input]");
     void* plugin = dlopen(arguments[2], RTLD_NOW | RTLD_GLOBAL);
     require(plugin != nullptr, "cannot load Lua plugin");
     RimeApi* api = rime_get_api();
@@ -106,6 +252,13 @@ int main(int count, char** arguments) {
     auto session = api->create_session();
     require(session != 0, "create_session failed");
     require(api->select_schema(session, "znabc"), "select_schema failed");
+    if (count == 4 && std::string(arguments[3]) == "--continuous-input") {
+      check_continuous_input(api, session);
+      api->destroy_session(session);
+      api->finalize();
+      std::cout << "Rime continuous input checks passed\n";
+      return EXIT_SUCCESS;
+    }
     if (count == 4) {
       require(std::string(arguments[3]) == "--learning-reload", "unknown argument");
       type(api, session, "ni32ni32");
@@ -239,7 +392,8 @@ int main(int count, char** arguments) {
     require(candidates(api, session).empty(), "Backspace did not close menu");
     open_menu(api, session);
     api->process_key(session, 'h', 0);
-    require(std::string(api->get_input(session)) == "ni32h" && candidates(api, session).empty(), "letter did not resume editing");
+    require(take_commit(api, session) == "你" && std::string(api->get_input(session)) == "h" &&
+        candidates(api, session).empty(), "letter did not commit selection and start next input");
     api->process_key(session, 0xff1b, 0);
     require(std::string(api->get_input(session)).empty(), "Escape did not clear composition");
     type(api, session, "nihao");
