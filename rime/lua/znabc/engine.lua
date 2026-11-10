@@ -30,7 +30,7 @@ function Engine.new(root, user_dictionary, include_supplement)
   end
   file:close()
   return setmetatable({dictionary = Dictionary.new(root, include_supplement), special = Special.new(root), affixes = affixes,
-    user_dictionary = user_dictionary, user_enabled = true}, Engine)
+    user_dictionary = user_dictionary, user_enabled = true, phrase_supplement_enabled = false}, Engine)
 end
 
 function Engine:affix_index(candidates, consumed, units, mode, input_length, start, single_character)
@@ -105,6 +105,37 @@ function Engine:user_candidates(units, width)
   return result
 end
 
+function Engine:phrase_supplement_candidates(units, input_length)
+  if not self.phrase_supplement_enabled or #units < 2 or #units > 9 or
+      units[#units].finish ~= input_length then
+    return {}
+  end
+  local readings = {}
+  for _, unit in ipairs(units) do
+    if unit.abbreviated and unit.packed ~= 65 * 256 and unit.packed ~= 69 * 256 and
+        unit.packed ~= 79 * 256 then
+      return {}
+    end
+    readings[#readings + 1] = unit.packed
+  end
+  local key = parser.initial_letter(units[1].initial) .. parser.initial_letter(units[2].initial)
+  local result = {}
+  for _, phrase in ipairs(self.dictionary:phrase_supplement(key, table.concat(readings, ","))) do
+    local record = self.user_dictionary and self.user_dictionary.entries[table.concat(phrase.codes, ",")]
+    local matched = not record or record.stage ~= "deleted"
+    for index, code in ipairs(phrase.codes) do
+      if not matches(self.dictionary.characters[code], units[index]) then
+        matched = false
+        break
+      end
+    end
+    if matched then
+      result[#result + 1] = phrase
+    end
+  end
+  return result
+end
+
 function Engine:learning_rank(item)
   local record = self.user_enabled and self.user_dictionary and self.user_dictionary:get(item.codes)
   if not record then
@@ -115,7 +146,7 @@ function Engine:learning_rank(item)
 end
 
 function Engine:word_character(input, suffix)
-  local phrases, consumed, units, mode = self:query(input)
+  local phrases, consumed, units, mode = self:query(input, false, true)
   if mode ~= "phrase" or consumed ~= #input then
     return {}, 0, units, "invalid"
   end
@@ -132,7 +163,7 @@ function Engine:word_character(input, suffix)
   return result, #input + 1, units, "word_character"
 end
 
-function Engine:query(input, single_character)
+function Engine:query(input, single_character, suppress_phrase_supplement, max_phrase_width)
   local zone = input:match("^v([1-9])$")
   if zone then
     return self.special:symbol_candidates(zone), #input, {}, "symbol"
@@ -154,7 +185,8 @@ function Engine:query(input, single_character)
   if #units > 1 and not single_character then
     local key = parser.initial_letter(units[1].initial) .. parser.initial_letter(units[2].initial)
     local bucket = self.dictionary:phrase_bucket(key)
-    for width = math.min(#units, 9), 2, -1 do
+    local supplements = not suppress_phrase_supplement and self:phrase_supplement_candidates(units, #input) or {}
+    for width = math.min(#units, max_phrase_width or 9, 9), 2, -1 do
       local candidates = self:user_candidates(units, width)
       local seen = {}
       for _, candidate in ipairs(candidates) do
@@ -175,6 +207,15 @@ function Engine:query(input, single_character)
           end
         end
       end
+      if width == #units then
+        for _, phrase in ipairs(supplements) do
+          local identity = table.concat(phrase.codes, ",")
+          if not seen[identity] then
+            candidates[#candidates + 1] = phrase
+            seen[identity] = true
+          end
+        end
+      end
       if #candidates > 0 then
         table.sort(candidates, function(left, right)
           local left_rank, left_uses, left_time = self:learning_rank(left)
@@ -187,6 +228,11 @@ function Engine:query(input, single_character)
           end
           if left_time ~= right_time then
             return left_time > right_time
+          end
+          local left_supplement = left.source == "phrase_supplement"
+          local right_supplement = right.source == "phrase_supplement"
+          if left_supplement ~= right_supplement then
+            return not left_supplement
           end
           if left.weight ~= right.weight then
             return left.weight > right.weight
@@ -238,6 +284,17 @@ function Engine:query_menu(input, single_character)
   local result = {}
   for _, candidate in ipairs(candidates) do
     result[#result + 1] = candidate
+  end
+  if #self:phrase_supplement_candidates(units, #input) > 0 then
+    local shorter, shorter_consumed, _, shorter_mode = self:query(input, false, true, #units - 1)
+    if shorter_mode == "phrase" and shorter_consumed < consumed then
+      for _, phrase in ipairs(shorter) do
+        local candidate = {}
+        for key, value in pairs(phrase) do candidate[key] = value end
+        candidate.consumed = shorter_consumed
+        result[#result + 1] = candidate
+      end
+    end
   end
   local characters, character_consumed = self:query(input, true)
   for _, character in ipairs(characters) do

@@ -1,0 +1,11 @@
+{
+  "format_version": 1,
+  "source_sha256": "78d7f41d419753e6dd6dea970fa470c18ba22a6ff6105bb5df44ce1610a899ba",
+  "phrases": 19106,
+  "buckets": 487,
+  "source_files": {
+    "小词库.json": "ec7fc86dbcc7817e6a0d044ccf51758c11ae968f63fe891226351de41b0edef9",
+    "专业性词汇/IT.json": "f4cc4792c82244a361f0ed29e466001eeef4d736e37b6f9faa3d8d8a14f789de"
+  },
+  "policy": "experimental; full-input full-pinyin only; base candidates first; no frequency claims"
+}

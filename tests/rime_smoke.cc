@@ -129,6 +129,30 @@ void check_numeric_input_option(RimeApi* api, RimeSessionId session) {
   api->set_option(session, "znabc_numeric_input", True);
 }
 
+void check_phrase_supplement(RimeApi* api, RimeSessionId session) {
+  require(api->get_option(session, "znabc_phrase_supplement"), "phrase supplement must default to enabled for trial");
+  auto learning = api->get_option(session, "znabc_learning");
+  api->set_option(session, "znabc_learning", False);
+  api->set_option(session, "znabc_phrase_supplement", False);
+  type(api, session, "erweima");
+  open_menu(api, session);
+  require(!contains(candidates(api, session), "二维码"), "disabled phrase supplement leaked a new word");
+  api->set_option(session, "znabc_phrase_supplement", True);
+  for (const auto& example : std::vector<std::pair<std::string, std::string>>{
+      {"erweima", "二维码"}, {"fuwuqi", "服务器"}, {"jiqixuexi", "机器学习"}}) {
+    type(api, session, example.first);
+    open_menu(api, session);
+    require(contains(candidates(api, session), example.second), "supplemental full-pinyin word missing");
+    select_text(api, session, example.second);
+    require(take_commit(api, session) == example.second, "supplemental word commit failed");
+  }
+  type(api, session, "ewm");
+  open_menu(api, session);
+  require(!contains(candidates(api, session), "二维码"), "unlearned supplemental word polluted abbreviation");
+  type(api, session, "");
+  api->set_option(session, "znabc_learning", learning);
+}
+
 void check_continuous_input(RimeApi* api, RimeSessionId session) {
   api->set_option(session, "znabc_learning", False);
   auto expect = [&](const std::string& committed, const std::string& input) {
@@ -298,6 +322,7 @@ int main(int count, char** arguments) {
     require(session != 0, "create_session failed");
     require(api->select_schema(session, "znabc"), "select_schema failed");
     check_numeric_input_option(api, session);
+    check_phrase_supplement(api, session);
     if (count == 4 && std::string(arguments[3]) == "--continuous-input") {
       check_continuous_input(api, session);
       api->destroy_session(session);

@@ -12,7 +12,7 @@ end
 
 function Dictionary.new(root, include_supplement)
   local self = setmetatable({root = root, characters = {}, initials = {}, phrases = {}, shapes = {},
-    include_supplement = include_supplement ~= false}, Dictionary)
+    phrase_supplements = {}, include_supplement = include_supplement ~= false}, Dictionary)
   local file, message = io.open(root .. "/characters.tsv", "rb")
   assert(file, "智能 ABC 数据未安装：" .. tostring(message))
   for line in file:lines() do
@@ -66,6 +66,32 @@ function Dictionary:phrase_bucket(key)
   end
   self.phrases[key] = result
   return result
+end
+
+function Dictionary:phrase_supplement(key, packed)
+  if not self.phrase_supplements[key] then
+    local result = {}
+    local file = io.open(self.root .. "/phrase_supplement/" .. key .. ".tsv", "rb")
+    if file then
+      for line in file:lines() do
+        local values = fields(line:gsub("\r$", ""))
+        local codes, readings = {}, {}
+        for value in values[3]:gmatch("%d+") do
+          local code = tonumber(value)
+          assert(self.characters[code], "补充词引用了未安装的字码")
+          codes[#codes + 1] = code
+          readings[#readings + 1] = self.characters[code].packed
+        end
+        local identity = table.concat(readings, ",")
+        result[identity] = result[identity] or {}
+        table.insert(result[identity], {text = values[2], codes = codes, weight = 0,
+          order = tonumber(values[5]), source = "phrase_supplement", comment = "〔扩充〕"})
+      end
+      file:close()
+    end
+    self.phrase_supplements[key] = result
+  end
+  return self.phrase_supplements[key][packed] or {}
 end
 
 function Dictionary:shape_bucket(initial)

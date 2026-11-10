@@ -1,7 +1,7 @@
 schema:
   schema_id: znabc
   name: 智能 ABC · 复刻
-  version: "0.3.2"
+  version: "0.3.3"
   author:
     - znabc reconstruction project
   description: |
@@ -29,6 +29,9 @@ switches:
   - name: znabc_learning
     reset: 1
     states: [冻结学习, 自动学习]
+  - name: znabc_phrase_supplement
+    reset: 1
+    states: [原版词表, 扩充词表]
 
 znabc:
   learning:

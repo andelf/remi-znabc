@@ -56,6 +56,7 @@ function translator.func(input, segment, env)
     return
   end
   env.abc.user_enabled = env.engine.context:get_option("znabc_user_dict")
+  env.abc.phrase_supplement_enabled = env.engine.context:get_option("znabc_phrase_supplement")
   local single_character = env.engine.context:get_option("znabc_single_character")
   local context = env.engine.context
   context:set_property("znabc_affix_index", "")
