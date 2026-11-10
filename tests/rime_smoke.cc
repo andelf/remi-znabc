@@ -84,6 +84,51 @@ void select_text(RimeApi* api, RimeSessionId session, const std::string& text) {
   throw std::runtime_error("candidate missing: " + text);
 }
 
+void check_numeric_input_option(RimeApi* api, RimeSessionId session) {
+  require(!api->get_option(session, "znabc_numeric_input"), "pure numeric input must default to disabled");
+  for (unsigned char character : std::string("0123456789")) {
+    require(!api->process_key(session, character, 0), "disabled numeric input swallowed a digit");
+    require(std::string(api->get_input(session)).empty() && candidates(api, session).empty() &&
+        take_commit(api, session).empty(), "disabled numeric input started a composition");
+    require(!api->get_option(session, "ascii_mode"), "numeric passthrough changed language mode");
+  }
+  type(api, session, "ni32");
+  open_menu(api, session);
+  select_text(api, session, "你");
+  require(take_commit(api, session) == "你", "numeric option blocked pinyin shape suffix or candidate selection");
+  type(api, session, "ni3235");
+  api->set_caret_pos(session, 2);
+  api->process_key(session, 0xff08, 0);
+  api->process_key(session, 0xff08, 0);
+  require(std::string(api->get_input(session)) == "3235", "prefix deletion did not leave numeric input");
+  api->set_caret_pos(session, 4);
+  open_menu(api, session);
+  require(candidates(api, session).empty(), "prefix deletion bypassed numeric opt-in");
+  api->process_key(session, 0xff0d, 0);
+  require(take_commit(api, session) == "3235", "disabled numeric Return did not preserve raw digits");
+  for (const auto& example : std::vector<std::pair<std::string, std::string>>{
+      {"i123", "一二三"}, {"I123", "壹贰叁"}, {"v123", "123"}}) {
+    type(api, session, example.first);
+    api->process_key(session, ' ', 0);
+    require(take_commit(api, session) == example.second, "numeric option blocked special input");
+  }
+  type(api, session, "v1");
+  open_menu(api, session);
+  auto symbols = candidates(api, session);
+  require(!symbols.empty(), "numeric option blocked symbol menu");
+  api->process_key(session, '1', 0);
+  require(take_commit(api, session) == symbols[0], "numeric option blocked symbol selection");
+  api->set_option(session, "znabc_numeric_input", True);
+  type(api, session, "3235");
+  open_menu(api, session);
+  select_text(api, session, "你");
+  require(take_commit(api, session) == "你", "explicit numeric opt-in failed");
+  api->set_option(session, "znabc_numeric_input", False);
+  require(!api->process_key(session, '3', 0) && std::string(api->get_input(session)).empty(),
+      "numeric opt-out did not restore direct digit input");
+  api->set_option(session, "znabc_numeric_input", True);
+}
+
 void check_continuous_input(RimeApi* api, RimeSessionId session) {
   api->set_option(session, "znabc_learning", False);
   auto expect = [&](const std::string& committed, const std::string& input) {
@@ -252,6 +297,7 @@ int main(int count, char** arguments) {
     auto session = api->create_session();
     require(session != 0, "create_session failed");
     require(api->select_schema(session, "znabc"), "select_schema failed");
+    check_numeric_input_option(api, session);
     if (count == 4 && std::string(arguments[3]) == "--continuous-input") {
       check_continuous_input(api, session);
       api->destroy_session(session);
@@ -273,6 +319,9 @@ int main(int count, char** arguments) {
       type(api, session, "wenti");
       open_menu(api, session);
       require(contains(candidates(api, session), "雯梯"), "mixed-menu word did not survive restart");
+      type(api, session, "pan33ni32");
+      open_menu(api, session);
+      require(contains(candidates(api, session), "槃你"), "supplemental word codes did not survive restart");
       api->destroy_session(session);
       api->finalize();
       std::cout << "Rime learning restart checks passed\n";
@@ -347,7 +396,7 @@ int main(int count, char** arguments) {
     type(api, session, "3235");
     open_menu(api, session);
     expected = candidates(api, session);
-    require(expected.size() == 3 && expected[0] == "仂" && expected[1] == "你" && expected[2] == "仍", "shape order differs");
+    require(expected.size() >= 3 && expected[0] == "仂" && expected[1] == "你" && expected[2] == "仍", "shape order differs");
     api->process_key(session, '2', 0);
     require(take_commit(api, session) == "你", "pure shape numeric selection failed");
     type(api, session, "ni32");
@@ -827,6 +876,29 @@ int main(int count, char** arguments) {
     type(api, session, "wulixi");
     open_menu(api, session);
     require(candidates(api, session)[0] == "物理系", "confirmed suffix combination was not learned");
+    api->clear_composition(session);
+    for (const auto& input : {"pan33", "335734"}) {
+      type(api, session, input);
+      open_menu(api, session);
+      select_text(api, session, "槃");
+      require(take_commit(api, session) == "槃", "supplemental pinyin/shape selection failed");
+    }
+    type(api, session, "jie");
+    open_menu(api, session);
+    select_text(api, session, "㛃");
+    require(take_commit(api, session) == "㛃", "pinyin-only supplemental character failed");
+    type(api, session, "m");
+    open_menu(api, session);
+    select_text(api, session, "呣");
+    require(take_commit(api, session) == "呣", "full nasal reading was treated as abbreviation");
+    type(api, session, "pan33ni32");
+    open_menu(api, session);
+    select_text(api, session, "槃");
+    select_text(api, session, "你");
+    require(take_commit(api, session) == "槃你", "supplemental character composition failed");
+    type(api, session, "pan33ni32");
+    open_menu(api, session);
+    require(contains(candidates(api, session), "槃你"), "supplemental character word was not learned");
     api->clear_composition(session);
     api->set_option(session, "ascii_mode", True);
     require(!api->process_key(session, '3', 0), "ASCII mode intercepted numeric key");

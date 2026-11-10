@@ -1,6 +1,6 @@
 package.path = arg[1] .. "/rime/lua/?.lua;" .. package.path
 local Engine = require("znabc.engine")
-local engine = Engine.new(arg[1] .. "/rime/znabc_data")
+local engine = Engine.new(arg[1] .. "/rime/znabc_data", nil, false)
 for input in io.lines() do
   local rows, consumed, _, mode = engine:query(input)
   local result = {mode, consumed}

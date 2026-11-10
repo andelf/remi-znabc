@@ -19,6 +19,7 @@ local function exercise(settings)
   function context:has_menu() return not settings.no_menu and options.znabc_selecting end
   function context:refresh_non_confirmed_composition() end
   function context:get_property() return "" end
+  function context:push_input(text) self.input = self.input .. text end
   function context:confirm_current_selection()
     self.calls = self.calls + 1
     assert(self.calls <= #self.input + 1, "unbounded confirmation")
@@ -35,7 +36,7 @@ local function exercise(settings)
     key[modifier] = function() return settings[modifier] or false end
   end
   local result = processor.func(key, {engine = {context = context}})
-  assert(result == 2, "continuing letter must reach speller once")
+  assert(result == (settings.result or 2), "unexpected key processing result")
   assert(context.calls == (settings.calls or 0), "unexpected confirmation count")
   assert(context.input == (settings.expected_input or settings.input or "nihao"), "raw input lost")
   assert(options.znabc_selecting == (settings.selecting or false), "unexpected selection state")
@@ -62,4 +63,11 @@ for _, modifier in ipairs({"release", "alt", "super", "ctrl", "shift"}) do
 end
 exercise({code = 68, selecting = true})
 exercise({options = {ascii_mode = true}, selecting = true})
+for code = 48, 57 do
+  exercise({input = "", code = code, result = 0, options = {znabc_selecting = false}})
+end
+exercise({input = "", code = 51, result = 1, expected_input = "3",
+  options = {znabc_selecting = false, znabc_numeric_input = true}})
+exercise({input = "ni", code = 51, result = 1, expected_input = "ni3",
+  options = {znabc_selecting = false}})
 print("Processor checks passed: " .. checks)

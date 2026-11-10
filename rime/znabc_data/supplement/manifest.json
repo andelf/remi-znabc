@@ -1,0 +1,65 @@
+{
+  "format_version": 1,
+  "characters": 1242,
+  "readings": 1660,
+  "shape_relationships": 1223,
+  "sources": {
+    "original_recovery": 898,
+    "manual": 344
+  },
+  "pinyin_only": [
+    "㛃",
+    "㛚",
+    "㛹",
+    "㟃",
+    "㠇",
+    "㠓",
+    "㥄",
+    "㧑",
+    "㫰",
+    "㬊",
+    "㬎",
+    "㬚",
+    "㮾",
+    "㰀",
+    "㳇",
+    "㳘",
+    "㳚",
+    "㴔",
+    "㺄",
+    "䃅"
+  ],
+  "without_suffix": [
+    "㛃",
+    "㛚",
+    "㛹",
+    "㟃",
+    "㠇",
+    "㠓",
+    "㥄",
+    "㧑",
+    "㫰",
+    "㬊",
+    "㬎",
+    "㬚",
+    "㮾",
+    "㰀",
+    "㳇",
+    "㳘",
+    "㳚",
+    "㴔",
+    "㺄",
+    "䃅",
+    "尢"
+  ],
+  "unsupported_readings": [
+    {
+      "character": "垈",
+      "pinyin": "tae",
+      "reason": "现有音节解析器不支持该读音"
+    }
+  ],
+  "source_sha256": "5ce7333caa79bbae6caf61c0f1b0a10498c386aae7df986cb60b2321d17767ac",
+  "priority": "After all original matches; bare initials omit supplements except exact full readings such as m.",
+  "code_format": "0x100000000 + Unicode scalar * 65536 + packed pinyin; stable per character/reading."
+}

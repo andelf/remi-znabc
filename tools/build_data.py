@@ -13,6 +13,7 @@ sys.path.insert(0, str(WORKSPACE / 'analysis'))
 
 from znabc_formats import BaseTables
 from build_special_data import build as build_special
+from build_supplement import build as build_supplement
 
 
 def write_rows(path, rows):
@@ -63,7 +64,7 @@ def build(source, destination):
         write_rows(destination / 'shapes' / f'{key}.tsv', rows)
     manifest = {
         'format_version': 1,
-        'project_version': '0.3.1',
+        'project_version': '0.3.2',
         'source_sha256': {name: hashlib.sha256((source / name).read_bytes()).hexdigest()
                           for name in ['winabcnt.ime', 'Winabc.ovl', 'Winabc.cwd']},
         'characters': len(characters),
@@ -71,8 +72,12 @@ def build(source, destination):
         'phrase_buckets': len(phrases),
         'shape_relationships': sum(len(rows) for rows in shapes.values()),
         'scope': 'Recovered base dictionaries and static frequencies; personal learning is stored separately in znabc_user.userdb.',
+        'supplement_manifest': 'supplement/manifest.json',
     }
     (destination / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    supplement = PROJECT / 'data/character_supplement.json'
+    if supplement.is_file():
+        build_supplement(supplement, destination)
     return manifest
 
 

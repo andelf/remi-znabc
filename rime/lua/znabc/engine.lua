@@ -19,7 +19,7 @@ local function matches(character, unit)
   return unit.shape == 0 or unit.shape == character.shape or unit.shape == math.floor(character.shape / 16) * 16
 end
 
-function Engine.new(root, user_dictionary)
+function Engine.new(root, user_dictionary, include_supplement)
   local affixes = {}
   local file = assert(io.open(root .. "/affixes.tsv", "rb"))
   for line in file:lines() do
@@ -29,7 +29,7 @@ function Engine.new(root, user_dictionary)
     affixes[#affixes + 1] = {direction = tonumber(direction), codes = codes}
   end
   file:close()
-  return setmetatable({dictionary = Dictionary.new(root), special = Special.new(root), affixes = affixes,
+  return setmetatable({dictionary = Dictionary.new(root, include_supplement), special = Special.new(root), affixes = affixes,
     user_dictionary = user_dictionary, user_enabled = true}, Engine)
 end
 
@@ -208,11 +208,16 @@ function Engine:query(input, single_character)
     unit = {packed = unit.packed, initial = unit.initial, shape = 0, abbreviated = false, finish = unit.finish}
   end
   for _, character in ipairs(self.dictionary.initials[initial] or {}) do
-    if matches(character, unit) and (not frequent_only or character.weight > 204) then
+    if matches(character, unit) and (not frequent_only or
+        (character.source ~= "supplement" and character.weight > 204) or
+        (character.source == "supplement" and character.packed == unit.packed)) then
       candidates[#candidates + 1] = character
     end
   end
   table.sort(candidates, function(left, right)
+    if (left.source == "supplement") ~= (right.source == "supplement") then
+      return left.source ~= "supplement"
+    end
     if left.weight ~= right.weight then
       return left.weight > right.weight
     end

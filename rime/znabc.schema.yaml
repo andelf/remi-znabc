@@ -1,7 +1,7 @@
 schema:
   schema_id: znabc
   name: 智能 ABC · 复刻
-  version: "0.3.1"
+  version: "0.3.2"
   author:
     - znabc reconstruction project
   description: |
@@ -14,11 +14,15 @@ schema:
     词编码后加 [ 取首字、加 ] 取末字，支持基础词和用户词。
     i/I 数量词空格直接上屏，v1..v9 空格打开符号选单。
     回车打开 GBK 单字查询，无匹配时提交原码；匹配完整笔形码前缀，方括号翻页。
+    默认数字直接输出；需在方案选单显式开启纯数字编码后，才能从数字开始输入笔形。
 
 switches:
   - name: ascii_mode
     reset: 0
     states: [中文, 西文]
+  - name: znabc_numeric_input
+    reset: 0
+    states: [数字直出, 纯数字编码]
   - name: znabc_user_dict
     reset: 1
     states: [基础词库, 用户词库]

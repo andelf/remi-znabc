@@ -2,7 +2,7 @@ local project = arg[1] or "."
 package.path = project .. "/rime/lua/?.lua;" .. package.path
 local Engine = require("znabc.engine")
 local parser = require("znabc.parser")
-local engine = Engine.new(project .. "/rime/znabc_data")
+local engine = Engine.new(project .. "/rime/znabc_data", nil, false)
 local checks = 0
 
 local function includes(input, text)

@@ -140,6 +140,10 @@ function processor.func(key, env)
   end
   local selecting = context:get_option("znabc_selecting")
   local gbk = context:get_option("znabc_gbk")
+  if context.input == "" and code >= 48 and code <= 57 and
+      not context:get_option("znabc_numeric_input") then
+    return 0
+  end
   if code == 0xff0d and context.input ~= "" and context.input:sub(1, 1) ~= "v" then
     if gbk and selecting then
       if context:has_menu() then

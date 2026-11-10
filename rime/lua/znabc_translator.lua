@@ -51,6 +51,10 @@ function translator.func(input, segment, env)
   if not segment:has_tag("abc") or not env.engine.context:get_option("znabc_selecting") then
     return
   end
+  if env.engine.context.input:match("^%d+$") and
+      not env.engine.context:get_option("znabc_numeric_input") then
+    return
+  end
   env.abc.user_enabled = env.engine.context:get_option("znabc_user_dict")
   local single_character = env.engine.context:get_option("znabc_single_character")
   local context = env.engine.context
